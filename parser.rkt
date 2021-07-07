@@ -9,16 +9,69 @@
 (define-datatype prog prog?
   [program [stmts statements?]]
   )
+(define-datatype statements statements?
+  [single_statements [stmt statement?]]
+  [multi_statements [stmts statements?]
+                    [stmt statement?]]
+  )
+(define-datatype statement statement?
+  [compound_stmt [cmp_stmt compound_statement?]]
+  [simple_stmt [smp_stmt simple_statement?]]
+  )
+(define-datatype simple_statement simple_statement?
+  [assignment_stmt [assign assignment?]]
+  [return_stmt [return return?]]
+  [global_stmt [global global?]]
+  [pass_stmt]
+  [break_stmt]
+  [continue_stmt]
+  )
 ;Main Lexer
-(define simple-math-lexer
+(define main-lexer
            (lexer
             ((:or (:+ (char-range #\0 #\9)) (:: (:+ (char-range #\0 #\9)) #\. (:+ (char-range #\0 #\9)))) (token-NUM (string->number lexeme)))
-            ("+" (token-plus))
+            ((:& (repetition 1 +inf.0 (union (char-range #\a #\z) (char-range #\A #\Z)))
+                 (complement (:or (:? "if") (:? "else") (:? "def") (:? "break") (:? "pass") (:? "continue") (:? "return") (:? "global")
+                                  (:? "for") (:? "in") (:? "or") (:? "and") (:? "not") (:? "True") (:? "False") (:? "None")))) (token-ID lexeme))
+            ("+" (token-+))
+            ("-" (token--))
+            ("*" (token-*))
+            ("**" (token-**))
+            ("if" (token-if))
+            ("else" (token-else))
+            (";" (token-sc))
+            ("pass" (token-pass))
+            ("break" (token-break))
+            ("continue" (token-continue))
+            ("=" (token-=))
+            ("return" (token-return))
+            ("global" (token-global))
+            ("def" (token-def))
+            ("(" (token-open_par))
+            (")" (token-close_par))
+            (":" (token-dd))
+            ("():" (token-o_c_p_d))
+            ("," (token-cama))
+            ("for" (token-for))
+            ("in" (token-in))
+            ("or" (token-or))
+            ("and" (token-and))
+            ("not" (token-not))
+            ("==" (token-==))
+            ("<" (token-<))
+            (">" (token->))
+            ("/" (token-/))
+            ("[" (token-open_q))
+            ("]" (token-close_q))
+            ("[]" (token-o_c_p))
+            ("True" (token-True))
+            ("False" (token-False))
+            ("None" (token-None))
             (whitespace (simple-math-lexer input-port))
             ((eof) (token-EOF))))
 ;Tokens
 (define-tokens a (NUM ID))
-(define-empty-tokens b (EOF plus sc pass break continue = return global def open_par close_par dd o_c_p_d cama
+(define-empty-tokens b (EOF sc pass break continue = return global def open_par close_par dd o_c_p_d cama
                             if else for in or and not == < > + - * / ** open_q close_q o_c_p True False None
                             ))
 ;Main Parser
@@ -30,11 +83,11 @@
             (tokens a b)
             (grammar
            (Program ((Statements) (program $1)) )
-           (Statements ((Statement sc) (single-statements $1))
-                       ((Statements Statement sc) (multi-statements $1 $2)))
+           (Statements ((Statement sc) (single_statements $1))
+                       ((Statements Statement sc) (multi_statements $1 $2)))
            (Statement ((Compound_stmt) (compound_stmt $1))
                       ((Simple_stmt) (simple_stmt $1)))
-           (Simple_stmt ((Assignment) (assignment $1))
+           (Simple_stmt ((Assignment) (assignment_stmt $1))
                         ((Return_stmt) (return_stmt $1))
                         ((Global_stmt) (global_stmt $1))
                         ((pass) (pass_stmt))
