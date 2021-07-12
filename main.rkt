@@ -24,12 +24,12 @@
 
 (define-datatype simple-statement simple-statement?
   [assign-stmt
-   [assign-var identifier?]
+   [assign-var string?]
    [assign-val expression?]]
   [return-stmt
    [statement return-statement?]]
   [global-stmt
-   [variable identifier?]]
+   [variable string?]]
   [pass-stmt]
   [break-stmt]
   [continue-stmt])
@@ -41,24 +41,24 @@
 
 (define-datatype compound-statement compound-statement?
   [function-def-with-param-stmt
-   [id identifier?]
+   [id string?]
    [params params?] 
-   [statements statement?]]
+   [statements statements?]]
   [function-def-without-param-stmt
-   [id identifier?]
-   [statements statement?]]
+   [id string?]
+   [statements statements?]]
   [if-stmt
    [condition expression?]
    [on-true statements?]
    [on-false statements?]] ; instead else block
   [for-stmt
-   [iterator identifier?]
+   [iterator string?]
    [iterating expression?]
    [body statements?]])
 
 (define-datatype param-with-default param-with-default?
   [param
-   [id identifier?]
+   [id string?]
    [expression expression?]])
 
 (define-datatype params params?
@@ -170,9 +170,9 @@
 
 (define-datatype atom atom?
   [atomic-id
-   [id identifier?]]
+   [id string?]]
   [atomic-true]
-  [atomix-false]
+  [atomic-false]
   [atomic-none]
   [atomic-number
    [num number?]]
@@ -280,7 +280,7 @@
 (define main-lexer
            (lexer
             ((:or (:+ (char-range #\0 #\9)) (:: (:+ (char-range #\0 #\9)) #\. (:+ (char-range #\0 #\9)))) (token-NUM (string->number lexeme)))
-            ((:& (repetition 1 +inf.0 (union (char-range #\a #\z) (char-range #\A #\Z)))
+            ((:& (repetition 1 +inf.0 (union (char-range #\a #\z) (char-range #\A #\Z) #\_ #\- (char-range #\0 #\9) ))
                  (complement (:or (:? "if") (:? "else") (:? "def") (:? "break") (:? "pass") (:? "continue") (:? "return") (:? "global")
                                   (:? "for") (:? "in") (:? "or") (:? "and") (:? "not") (:? "True") (:? "False") (:? "None")))) (token-ID lexeme))
             ("+" (token-+))
@@ -321,8 +321,8 @@
             ((eof) (token-EOF))))
 
 ; tokens
-(define-tokens a (NUM ID))
-(define-empty-tokens b (EOF sc pass break continue = return global def open_par close_par dd o_c_p_d cama
+(define-tokens value-tokens (NUM ID))
+(define-empty-tokens op-tokens (EOF sc pass break continue = return global def open_par close_par dd o_c_p_d cama
                             if else for in or and not == < > + - * / ** open_q close_q o_c_p True False None))
 
 ; parser
@@ -331,52 +331,42 @@
             (start Program)
             (end EOF)
             (error void)
-            (tokens a b)
+            (tokens op-tokens value-tokens)
            (grammar
             (Program ((Statements) (prog $1)))
             (Statements ((Statement sc) (single-stmt $1))
                         ((Statements Statement sc) (multi-stmts $1 $2)))
             (Statement ((Compound_stmt) (compound-stmt $1))
                        ((Simple_stmt) (simple-stmt $1)))
-            (Simple_stmt ((Assignment) (assign-stmt $1))
+            (Simple_stmt ((ID = Expression) (assign-stmt $1 $3))
                          ((Return_stmt) (return-stmt $1))
-                         ((Global_stmt) (global-stmt $1))
+                         ((global ID) (global-stmt $2))
                          ((pass) (pass-stmt))
                          ((break) (break-stmt))
                          ((continue) (continue-stmt)))
-            (Compound_stmt ((Function_def) (function_def $1))
-                          ((If_stmt) (if_stmt $1))
-                          ((For_stmt) (for_stmt $1)))
-            (Assignment ((ID = Expression) (assignment $1 $3)))
-            (Return_stmt ((return) (return_void_stmt))
-                        ((return Expression) (return_value-stmt $1)))
-            (Global_stmt ((global ID) (global_stmt $2)))
-            (Function_def ((def ID open_par Params close_par dd Statements) (func_def_par $2 $4 $7))
-                         ((def ID o_c_p_d Statements) (func_def_nopar $2 $4)))
-            (Params ((Param_with_default) (param_with_default $1))
-                   ((Params cama Param_with_default) (params $1 $3)))
+            (Compound_stmt ((def ID open_par Params close_par dd Statements) (function-def-with-param-stmt $2 $4 $7))
+                           ((def ID o_c_p_d Statements) (function-def-without-param-stmt $2 $4))
+                          ((if Expression dd Statements else dd Statements) (if-stmt $2 $4 $7))
+                          ((for ID in Expression dd Statements) (for-stmt $2 $4 $6)))
+            (Return_stmt ((return) (return-without-value-stmt))
+                        ((return Expression) (return-with-value-stmt $2)))
+            (Params ((Param_with_default) (single-param $1))
+                   ((Params cama Param_with_default) (multi-params $1 $3)))
             (Param_with_default ((ID = Expression) (param $1 $3)))
-            (If_stmt ((if Expression dd Statements Else_block) (if_stmt $2 $4 $5)))
-            (Else_block ((else dd Statements) (else_block $3)))
-            (For_stmt ((for ID in Expression dd Statements) (for_stmt $2 $4 $6)))
-            
             (Expression ((Disjunction) (disjunction-exp $1)))
             (Disjunction ((Conjunction) (simple-disjunction-exp $1))
                          ((Disjunction or Conjunction) (complex-disjunction-exp $1 $3)))
             (Conjunction ((Inversion) (simple-conjunction-exp $1))
                          ((Conjunction and Inversion) (complex-conjunction-exp $1 $3)))
             (Inversion ((not Inversion) (not-inversion-exp $2))
-                       ((Comparison) (comparison-inversion-expression $1)))
+                       ((Comparison) (comprasion-inversion-exp $1)))
             (Comparison ((Sum Compare_op_Sum_Pairs) (comparing-comparison-exp $1 $2))
                         ((Sum) (no-comparison-exp $1)))
             (Compare_op_Sum_Pairs ((Compare_op_Sum_Pair) (single-operator-sum-pair $1))
-                                  ((Compare_op_Sum_Pairs Compare_op_Sum_Pair) (multi-operator-sum-pair $1 $2)))
-            (Compare_op_Sum_Pair ((Eq_sum) (eq-sum $1))
-                                 ((Lt_sum) (lt-sum $1))
-                                 ((Gt_sum) (gt-sum $1)))
-            (Eq_sum ((== Sum) (eq_sum $2)))
-            (Lt_sum ((< Sum) (lt_sum $2)))
-            (Gt_sum ((> Sum) (gt_sum $2)))
+                                  ((Compare_op_Sum_Pairs Compare_op_Sum_Pair) (multi-operator-sum-pairs $1 $2)))
+            (Compare_op_Sum_Pair ((== Sum) (eq-sum $2))
+                                 ((< Sum) (lt-sum $2))
+                                 ((> Sum) (gt-sum $2)))
             (Sum ((Sum + Term) (sum+ $1 $3))
                  ((Sum - Term) (sum- $1 $3))
                  ((Term) (sum-nop $1)))
@@ -394,19 +384,23 @@
                      ((Primary open_par Arguments close_par) (function-with-arg-call $1 $3)))
             (Arguments ((Expression) (single-arg $1))
                        ((Arguments cama Expression) (multi-args $1 $3)))
-            (Atom ((ID) (id $1))
+            (Atom ((ID) (atomic-id $1))
                   ((True) (atomic-true))
                   ((False) (atomic-false))
                   ((None) (atomic-none))
-                  ((NUM) (atomix-number $1))
+                  ((NUM) (atomic-number $1))
                   ((List) (atomic-list $1)))
             (List ((open_q Expressions close_q) (dataful-list $2))
                   ((open_q close_q) (dataless-list)))
-            (Expressions ((Expressions cama Expression) (multi-exps $1 $2))
+            (Expressions ((Expressions cama Expression) (multi-exps $1 $3))
                          ((Expression) (single-exp $1))))))
 
-;Test
-(define lex-this (lambda (lexer input) (lambda () (lexer input))))
-(define my-lexer (lex-this simple-math-lexer (open-input-string "1+2+ 3 +   4")))
-(let ((parser-res (simple-math-parser my-lexer))) parser-res)
+; test
+(define (evaluate path)
+    (define lex-this (lambda (lexer input) (lambda () (lexer input))))
+    (define my-lexer (lex-this main-lexer (open-input-string (file->string path))))
+  (let ((parser-res (main-parser my-lexer))) parser-res)
+  )
+(evaluate "testbench.txt")
+
 
