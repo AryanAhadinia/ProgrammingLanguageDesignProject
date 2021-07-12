@@ -1,10 +1,10 @@
 #lang racket
 
-; Adding required dependencies
+; adding required dependencies
 (require (lib "eopl.ss" "eopl"))
 (require parser-tools/lex (prefix-in : parser-tools/lex-sre) parser-tools/yacc)
 
-; Datatypes
+; datatypes
 (define-datatype program program?
   [prog
    [statements statements?]])
@@ -13,8 +13,8 @@
   [single-stmt
    [stmt statement?]]
   [multi-stmts
-   [stmt statements?]
-   [stmts statement?]])
+   [stmts statements?]
+   [stmt statement?]])
 
 (define-datatype statement statement?
   [simple-stmt
@@ -54,8 +54,7 @@
   [for-stmt
    [iterator identifier?]
    [iterating expression?]
-   [body statements?]]
-  )
+   [body statements?]])
 
 (define-datatype param-with-default param-with-default?
   [param
@@ -68,13 +67,6 @@
   [multi-params
    [rest-params params?]
    [last-param param-with-default?]])
-
-(define-datatype expressions expressions?
-  [single-exp
-   [exp expression?]]
-  [multi-exp
-   [rest-exps expressions?]
-   [last-exp expression?]])
 
 (define-datatype expression expression?
   [disjunction-exp
@@ -98,13 +90,13 @@
   [not-inversion-exp
    [inversion-op inversion-expression?]]
   [comprasion-inversion-exp
-   [compration-op comprasion-expression?]])
+   [comparison-op comprasion-expression?]])
 
 (define-datatype comprasion-expression comprasion-expression?
-  [comparing-compration-exp
+  [comparing-comparison-exp
    [sum-op sum-expression?]
    [pairs-op compare-operator-sum-pairs?]]
-  [no-compration-exp
+  [no-comparison-exp
    [sum-op sum-expression?]])
 
 (define-datatype compare-operator-sum-pairs compare-operator-sum-pairs?
@@ -151,12 +143,53 @@
    [power-op power-expression?]])
 
 (define-datatype power-expression power-expression?
-  ;[power**
-   ;[atom-op atom-expression?]
-   ;[factor-op factor-expression?]]
-  ;[power-nop
-   ;[primary-op primary-expression?]]
-  )
+  [power**
+   [atom-op atom?]
+   [factor-op factor-expression?]]
+  [power-nop
+   [primary-op primary?]])
+
+(define-datatype primary primary?
+  [atomic-primary
+   [atom-op atom?]]
+  [list-call
+   [list-op primary?]
+   [index-op expression?]]
+  [function-with-arg-call
+   [function-op primary?]
+   [arguments-op arguments?]]
+  [function-without-arg-call
+   [function-op primary?]])
+
+(define-datatype arguments arguments?
+  [single-arg
+   [arg expression?]]
+  [multi-args
+   [rest-args arguments?]
+   [last-arg expression?]])
+
+(define-datatype atom atom?
+  [atomic-id
+   [id identifier?]]
+  [atomic-true]
+  [atomix-false]
+  [atomic-none]
+  [atomic-number
+   [num number?]]
+  [atomic-list
+   [list-type list-type?]])
+
+(define-datatype list-type list-type?
+  [dataful-list
+   [exps expressions?]]
+  [dataless-list])
+
+(define-datatype expressions expressions?
+  [single-exp
+   [exp expression?]]
+  [multi-exps
+   [rest-exps expressions?]
+   [last-exp expression?]])
 
 ; required extractors
 (define last-sum-of-pairs (lambda (pairs) '()))
@@ -191,19 +224,19 @@
   (lambda (inversion-exp)
     (cases inversion-expression inversion-exp
       (not-inversion-exp (inversion-op) (not (value-of-inversion-expression inversion-op)))
-      (comprasion-inversion-exp (compration-op) (value-of-comprasion-expression compration-op)))))
+      (comprasion-inversion-exp (comparison-op) (value-of-comprasion-expression comparison-op)))))
 
 (define value-of-comprasion-expression
   (lambda (comprasion-exp)
     (cases comprasion-expression comprasion-exp
-      (comparing-compration-exp (sum-op pairs-op)
+      (comparing-comparison-exp (sum-op pairs-op)
                                 (cases compare-operator-sum-pairs pairs-op
                                   (single-operator-sum-pair (pair) (value-of-compare-operator-sum-pair sum-op pair))
                                   (multi-operator-sum-pairs (rest-pairs last-pair)
-                                                            (if (value-of-comprasion-expression (comparing-compration-exp sum-op rest-pairs))
+                                                            (if (value-of-comprasion-expression (comparing-comparison-exp sum-op rest-pairs))
                                                                 (value-of-compare-operator-sum-pair (last-sum-of-pairs rest-pairs) last-pair)
                                                                 #f))))
-      (no-compration-exp (sum-op) (value-of-sum-expression sum-op)))))
+      (no-comparison-exp (sum-op) (value-of-sum-expression sum-op)))))
 
 (define value-of-compare-operator-sum-pair
   (lambda (external-sum pair)
@@ -234,11 +267,14 @@
       (factor-nop (power-op) (value-of-power-expression power-op)))))
 
 (define value-of-power-expression ;todo
-;  (lambda (power-exp)
-;    (cases power-expression power-exp
-;      (power** (atom-op factor-op) '())
-;      (power-nop (primary-op) '())))
-  '() )
+  (lambda (power-exp)
+    (cases power-expression power-exp
+      (power** (atom-op factor-op) (expt (value-of-atom atom-op) (value-of-factor-expression factor-op)))
+      (power-nop (primary-op) '()))))
+
+(define value-of-primary '())
+
+(define value-of-atom '())
 
 ; lexer
 (define main-lexer
@@ -323,51 +359,51 @@
             (If_stmt ((if Expression dd Statements Else_block) (if_stmt $2 $4 $5)))
             (Else_block ((else dd Statements) (else_block $3)))
             (For_stmt ((for ID in Expression dd Statements) (for_stmt $2 $4 $6)))
-            (Expression ((Disjunction) (expression $1)))
-            (Disjunction ((Conjunction) (conjunction $1))
-                        ((Disjunction or Conjunction) (dis-or-conj $1 $3)))
-            (Conjunction ((Inversion) (inversion $1))
-                        ((Conjunction and Inversion) (conj-and-inv $1 $3)))
-            (Inversion ((not Inversion) (not-inv $2))
-                      ((Comparison) (comparison $1)))
-            (Comparison ((Sum Compare_op_Sum_Pairs) (sum_comps $1 $2))
-                       ((Sum) (sum $1)))
-            (Compare_op_Sum_Pairs ((Compare_op_Sum_Pair) (single_comp $1))
-                                 ((Compare_op_Sum_Pairs Compare_op_Sum_Pair) (multi_comp $1 $2)))
-            (Compare_op_Sum_Pair ((Eq_sum) (eq_sum $1))
-                                ((Lt_sum) (lt_sum $1))
-                                ((Gt_sum) (gt_sum $1)))
+            
+            (Expression ((Disjunction) (disjunction-exp $1)))
+            (Disjunction ((Conjunction) (simple-disjunction-exp $1))
+                         ((Disjunction or Conjunction) (complex-disjunction-exp $1 $3)))
+            (Conjunction ((Inversion) (simple-conjunction-exp $1))
+                         ((Conjunction and Inversion) (complex-conjunction-exp $1 $3)))
+            (Inversion ((not Inversion) (not-inversion-exp $2))
+                       ((Comparison) (comparison-inversion-expression $1)))
+            (Comparison ((Sum Compare_op_Sum_Pairs) (comparing-comparison-exp $1 $2))
+                        ((Sum) (no-comparison-exp $1)))
+            (Compare_op_Sum_Pairs ((Compare_op_Sum_Pair) (single-operator-sum-pair $1))
+                                  ((Compare_op_Sum_Pairs Compare_op_Sum_Pair) (multi-operator-sum-pair $1 $2)))
+            (Compare_op_Sum_Pair ((Eq_sum) (eq-sum $1))
+                                 ((Lt_sum) (lt-sum $1))
+                                 ((Gt_sum) (gt-sum $1)))
             (Eq_sum ((== Sum) (eq_sum $2)))
             (Lt_sum ((< Sum) (lt_sum $2)))
             (Gt_sum ((> Sum) (gt_sum $2)))
-            (Sum ((Sum + Term) (sum_plus $1 $3))
-                ((Sum - Term) (sum_minus $1 $3))
-                ((Term) (sum_term $1)))
-            (Term ((Term * Factor) (term_mult $1 $3))
-                 ((Term / Factor) (term_div $1 $3))
-                 ((Factor) (term_factor $1)))
-            (Factor ((+ Factor) (factor_plus $2))
-                   ((- Factor) (factor_minus $2))
-                   ((Power) (factor_power $1)))
-            (Power ((Atom ** Factor) (power_atom $1 $3))
-                  ((Primary) (power_prim $1)))
-            (Primary ((Atom) (prim_atom $1))
-                    ((Primary open_q Expression close_q) (prim_exp $1 $3))
-                    ((Primary o_c_p) (prim_empt $1))
-                    ((Primary open_par Arguments close_par) (prim_args $1 $3)))
-            (Arguments ((Expression) (arg_exp $1))
-                      ((Arguments cama Expression) (arg_mult_exp $1 $3)))
-            (Atom ((ID) (ident $1))
-                 ((True) (bool-true))
-                 ((False) (bool-false))
-                 ((None) (none))
-                 ((NUM) (cons $1))
-                 ((List) (list $1)))
-            (List ((open_q Expressions close_q) (list_exps $2))
-                 ((open_q close_q) (empty_list)))
-            (Expressions ((Expressions cama Expression) (exp_multi $1 $2))
-                        ((Expression) (exp_single $1)))
-            )))
+            (Sum ((Sum + Term) (sum+ $1 $3))
+                 ((Sum - Term) (sum- $1 $3))
+                 ((Term) (sum-nop $1)))
+            (Term ((Term * Factor) (term* $1 $3))
+                  ((Term / Factor) (term/ $1 $3))
+                  ((Factor) (term-nop $1)))
+            (Factor ((+ Factor) (factor+ $2))
+                    ((- Factor) (factor- $2))
+                    ((Power) (factor-nop $1)))
+            (Power ((Atom ** Factor) (power** $1 $3))
+                   ((Primary) (power-nop $1)))
+            (Primary ((Atom) (atomic-primary $1))
+                     ((Primary open_q Expression close_q) (list-call $1 $3))
+                     ((Primary o_c_p) (function-without-arg-call $1))
+                     ((Primary open_par Arguments close_par) (function-with-arg-call $1 $3)))
+            (Arguments ((Expression) (single-arg $1))
+                       ((Arguments cama Expression) (multi-args $1 $3)))
+            (Atom ((ID) (id $1))
+                  ((True) (atomic-true))
+                  ((False) (atomic-false))
+                  ((None) (atomic-none))
+                  ((NUM) (atomix-number $1))
+                  ((List) (atomic-list $1)))
+            (List ((open_q Expressions close_q) (dataful-list $2))
+                  ((open_q close_q) (dataless-list)))
+            (Expressions ((Expressions cama Expression) (multi-exps $1 $2))
+                         ((Expression) (single-exp $1))))))
 
 ;Test
 (define lex-this (lambda (lexer input) (lambda () (lexer input))))
