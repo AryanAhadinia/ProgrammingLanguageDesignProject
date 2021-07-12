@@ -35,3 +35,4 @@ compiled/
 .ionide
 
 # End of https://www.toptal.com/developers/gitignore/api/racket,visualstudiocode
+main.bak
