@@ -37,6 +37,7 @@
     (cases store-value val
       (list-val (the-val) the-val)
       (else 'error))))
+
 ; store
 (define the-store 'uninitialized)
 
@@ -417,7 +418,16 @@
                                        (extend-env id (newref (function-val '() '() stmts env)) env))
       (if-stmt (condition on-true on-false)
                (remove-interrupt (execute-statements (if (store-value->bool (value-of-expression condition)) on-true on-false) env)))
-      (for-stmt (iterator iterating body) '()))))
+      (for-stmt (iterator iterating body)
+                (let ([iterating-list (store-value->list (value-of-expression iterating))])
+                  (if (null? iterating-list)
+                      env
+                      (let ([new-env (execute-statements body (extend-env iterator (newref (car iterating-list)) env))])
+                        (if (check-interrupt-free new-env)
+                            (execute-compound-statement (for-stmt iterator (list-val (cdr iterating-list))) new-env)
+                            (if (= 0 (interrupt->numeric-val->value new-env))
+                                new-env
+                                (execute-compound-statement (for-stmt iterator (list-val (cdr iterating-list))) (remove-interrupt new-env)))))))))))
 
 (define execute-return-statement
   (lambda (stmt env)
