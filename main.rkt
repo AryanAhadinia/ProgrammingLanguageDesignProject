@@ -117,7 +117,12 @@
       (interrupt-with-value (val the-env) val)
       (else 'error))))
 
-interrupt->numeric-val->value
+(define interrupt->numeric-val->value
+  (lambda (env)
+    (let (store-val (interrupt->value env))
+      (cases store-value store-val
+        (numeric-val (val) val)
+        (else 'error)))))
 
 (define remove-interrupt
   (lambda (env)
