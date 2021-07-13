@@ -373,9 +373,8 @@
    [last-exp expression?]])
 
 ; required extractors
-(define last-sum-of-pairs (lambda (pairs) '()))
+(define last-sum-of-pairs (lambda (pairs) '())) ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;;;;;;;;;;;;;;;;;;;;;;;
 (define execute-program
   (lambda (pgm)
     (begin
@@ -434,8 +433,6 @@
     (cases return-statement stmt
       (return-with-value-stmt (val-exp) (interrupt-with-value (value-of-expression val-exp)))
       (return-without-value-stmt () (interrupt-env env)))))
-
-;;;;;;;;;;;;;;;;;;;;;;;
 
 (define value-of-expression
   (lambda (exp)
