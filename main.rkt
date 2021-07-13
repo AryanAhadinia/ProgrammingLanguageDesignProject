@@ -21,7 +21,7 @@
    [saved-env environment?]])
 
 ; unwrap
-(define store-value->function-name
+(define store-value->function-val->function-name
   (lambda (val)
     (cases store-value val
       (function-val (function-name bound-vars default-vals body saved-env) function-name)
@@ -435,7 +435,7 @@
 (define execute-return-statement
   (lambda (stmt env)
     (cases return-statement stmt
-      (return-with-value-stmt (val-exp) (interrupt-with-value (value-of-expression val-exp)))
+      (return-with-value-stmt (val-exp) (interrupt-with-value (value-of-expression val-exp env)))
       (return-without-value-stmt () (interrupt-env env)))))
 
 (define value-of-expression
@@ -484,9 +484,12 @@
 (define value-of-compare-operator-sum-pair
   (lambda (external-sum pair env)
     (cases compare-operator-sum-pair pair
-      (eq-sum (sum-op) (bool-val (= (store-value->number external-sum) (store-value->number (value-of-sum-expression sum-op env)))))
-      (lt-sum (sum-op) (bool-val (< (store-value->number external-sum) (store-value->number (value-of-sum-expression sum-op env)))))
-      (gt-sum (sum-op) (bool-val (> (store-value->number external-sum) (store-value->number (value-of-sum-expression sum-op env))))))))
+      (eq-sum (sum-op) (bool-val (= (store-value->number external-sum)
+                                    (store-value->number (value-of-sum-expression sum-op env)))))
+      (lt-sum (sum-op) (bool-val (< (store-value->number external-sum)
+                                    (store-value->number (value-of-sum-expression sum-op env)))))
+      (gt-sum (sum-op) (bool-val (> (store-value->number external-sum)
+                                    (store-value->number (value-of-sum-expression sum-op env))))))))
 
 (define last-sum-of-pairs
   (lambda (pairs env)
@@ -544,53 +547,69 @@
                                                       (store-value->number (value-of-factor-expression factor-op env)))))
       (power-nop (primary-op) (value-of-primary primary-op env)))))
 
-;<
-(define-datatype primary primary?
-  [atomic-primary
-   [atom-op atom?]]
-  [list-call
-   [list-op primary?]
-   [index-op expression?]]
-  [function-with-arg-call
-   [function-op primary?]
-   [arguments-op arguments?]]
-  [function-without-arg-call
-   [function-op primary?]])
-
-(define-datatype store-value store-value?
-  [none-val]
-  [numeric-val
-   [val number?]]
-  [bool-val
-   [val boolean?]]
-  [list-val
-   [val (list-of store-value?)]]
-  [function-val
-   [bound-vars (list-of symbol?)]
-   [default-vals (list-of store-value?)]
-   [body statements?]
-   [saved-env environment?]])
-;>
-
 (define value-of-primary
   (lambda (prmy-exp env)
     (cases primary prmy-exp
       (atomic-primary (atom-op) (value-of-atom atom-op env))
       (list-call (list-op index-op) (list-ref (store-value->list (value-of-primary list-op env))
                                               (store-value->number (value-of-expression index-op env))))
-      (function-with-arg-call (function-op arguments-op) '())
-      (function-without-arg-call (function-op) (cases store-value (value-of-primary function-op env)
-                                                 (function-val (bound-vars default-vals body saved-env)
-                                                               ())
-                                                 (else 'error))))))
+      (function-with-arg-call (function-op arguments-op) (let ([func-val (value-of-primary function-op env)])
+                                                           (cases store-value func-val
+                                                             (function-val (function-name bound-vars default-vals body saved-env)
+                                                                           (let ([new-env (execute-statements
+                                                                                           body
+                                                                                           (extend-env-for-call
+                                                                                            func-val
+                                                                                            bound-vars
+                                                                                            (value-of-arguments arguments-op)
+                                                                                            default-vals
+                                                                                            saved-env
+                                                                                            env))])
+                                                                             (if (check-interrupt-free new-env)
+                                                                                 (none-val)
+                                                                                 (if (interrupt-with-value? new-env)
+                                                                                     (interrupt->value new-env)
+                                                                                     (none-val)))))
+                                                             (else 'error))))
+      (function-without-arg-call (function-op) (let ([func-val (value-of-primary function-op env)])
+                                                 (cases store-value func-val
+                                                   (function-val (function-name bound-vars default-vals body saved-env)
+                                                                 (let ([new-env (execute-statements
+                                                                                 body
+                                                                                 (extend-env-for-call
+                                                                                  func-val
+                                                                                  bound-vars
+                                                                                  '()
+                                                                                  default-vals
+                                                                                  saved-env
+                                                                                  env))])
+                                                                   (if (check-interrupt-free new-env)
+                                                                       (none-val)
+                                                                       (if (interrupt-with-value? new-env)
+                                                                           (interrupt->value new-env)
+                                                                           (none-val)))))
+                                                   (else 'error)))))))
 
 (define extend-env-for-call
-  (lambda (function-val vars vals saved-env runtime-env)
-    (extend-env-with-saved-env vars vals saved-env (extend-env    function-val (interrupt-env runtime-env)))))
+  (lambda (func-val vars bound-vals default-vals saved-env runtime-env)
+    (extend-env-with-vals
+     vars
+     bound-vals
+     (extend-env-with-vals
+      vars
+      default-vals
+      (extend-env
+       (store-value->function-val->function-name func-val)
+       (newref func-val)
+       (concat-envs
+        saved-env
+        (interrupt-env runtime-env)))))))
 
-(define extend-env-with-saved-env
-  (lambda (vars vals saved-env env)
-    ()))
+(define extend-env-with-vals
+  (lambda (vars vals env)
+    (cond
+      [(null? vals) env]
+      [else (extend-env-with-saved-env (cdr vars) (cdr vals) (extend-env (car vars) (newref (car vals)) env))])))
 
 ;<
 (define-datatype arguments arguments?
