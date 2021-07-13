@@ -125,6 +125,12 @@ interrupt->numeric-val->value
       (interrupt-with-value (val the-env) the-env)
       (interrupt-env (the-env) the-env)
       (else env))))
+
+(define concat-envs
+  (lambda (prior-env posterior-env)
+    (cases environment prior-env
+      (empty-env () posterior-env)
+      (extend-env (var val rest-env) (extend-env var val (concat-envs (rest-env posterior-env)))))))
    
 ; datatypes
 (define-datatype program program?
@@ -172,7 +178,7 @@ interrupt->numeric-val->value
   [if-stmt
    [condition expression?]
    [on-true statements?]
-   [on-false statements?]] ; instead else block
+   [on-false statements?]]
   [for-stmt
    [iterator symbol?]
    [iterating expression?]
