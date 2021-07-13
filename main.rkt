@@ -67,8 +67,63 @@
    [val reference?]
    [rest-env environment?]]
   [interrupt-env
+   [env environment?]]
+  [interrupt-with-value
+   [val store-value?]
    [env environment?]])
 
+(define apply-env-ignore-interrupt
+  (lambda (env search-var)
+    (cases environment env
+      (empty-env () (eopl:error 'apply-env "No binding for ~s" search-var))
+      (extend-env (var val rest-env) (if (eqv? search-var var)
+                                         val
+                                         (apply-env (rest-env search-var))))
+      (interrupt-env (the-env) (apply-env (the-env search-var)))
+      (interrupt-with-value (val the-env) (apply-env (the-env search-var))))))
+
+(define apply-env
+  (lambda (env search-var)
+    (cases environment env
+      (extend-env (var val rest-env) (if (eqv? search-var var)
+                                         val
+                                         (apply-env (rest-env search-var))))
+      (else (eopl:error 'apply-env "No binding for ~s" search-var)))))
+
+(define bounded?
+  (lambda (env search-var)
+    (cases environment env
+      (extend-env (var val rest-env) (if (eqv? search-var var)
+                                         #t
+                                         (apply-env (rest-env search-var))))
+      (else #f))))
+
+(define check-interrupt-free
+  (lambda (env)
+    (cases environment env
+      (interrupt-env (the-env) #f)
+      (interrupt-with-value (val the-env) #f)
+      (else #t))))
+
+(define interrupt-with-value?
+  (lambda (env)
+    (cases environment env
+      (interrupt-with-value (val the-env) #t)
+      (else #f))))
+
+(define interrupt->value
+  (lambda (env)
+    (cases environment env
+      (interrupt-with-value (val the-env) val)
+      (else 'error))))
+
+(define remove-interrupt
+  (lambda (env)
+    (cases environment env
+      (interrupt-with-value (val the-env) the-env)
+      (interrupt-env (the-env) the-env)
+      (else env))))
+   
 ; datatypes
 (define-datatype program program?
   [prog
