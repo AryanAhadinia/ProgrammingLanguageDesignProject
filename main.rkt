@@ -117,6 +117,8 @@
       (interrupt-with-value (val the-env) val)
       (else 'error))))
 
+interrupt->numeric-val->value
+
 (define remove-interrupt
   (lambda (env)
     (cases environment env
@@ -325,53 +327,36 @@
   (lambda (stmts env)
     (cases statements stmts
       (single-stmt (stmt) (execute-statement stmt env))
-      (multi-stmts (stmts stmt) (execute-statements stmts (execute-statement stmt env))))))
+      (multi-stmts (stmts stmt) (execute-statement stmt (execute-statements stmts env))))))
 
 (define execute-statement
   (lambda (stmt env)
-    (if '(chech-interrupt-free env) ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+    (if (check-interrupt-free env)
         (cases statement stmt
-          (simple-stmt (stmt) '())
-          (compound-stmt (stmt) '()))
+          (simple-stmt (stmt) (execute-simple-statement stmt env))
+          (compound-stmt (stmt) (execute-compound-statement stmt env)))
         env)))
-
-;;;;;;
-
-(define-datatype simple-statement simple-statement?
-  [assign-stmt
-   [assign-var symbol?]
-   [assign-val expression?]]
-  [return-stmt
-   [statement return-statement?]]
-  [global-stmt
-   [variable symbol?]]
-  [pass-stmt]
-  [break-stmt]
-  [continue-stmt])
-
-(define-datatype return-statement return-statement?
-  [return-with-value-stmt
-   [return-value expression?]]
-  [return-without-value-stmt])
-
-
-;/;
 
 (define execute-simple-statement
   (lambda (stmt env)
     (cases simple-statement stmt
-      (assign-stmt (var val) '())
-      (return-stmt (return-stmt) '())
-      (global-stmt (var) '())
-      (pass-stmt () '())
-      (break-stmt () '())
-      (continue-stmt () '()))))
+      (assign-stmt (var val) (if (bounded? var)
+                                 (setref! (apply-env env var) (value-of-expression val))
+                                 (extend-env var (newref (value-of-expression val))))
+      (return-stmt (return-stmt) (execute-return-statement return-stmt))
+      (global-stmt (var) (extend-env var (apply-env-ignore-interrupt var) env))
+      (pass-stmt () env)
+      (break-stmt () (interrupt-with-value (numeric-val 0) env))
+      (continue-stmt () (interrupt-with-value (numeric-val 1) env)))))
 
 (define execute-compound-statement
-  (lambda (stmt env) ()))
+  (lambda (stmt env) '()))
 
 (define execute-return-statement
-  (lambda (stmt env) ())
+  (lambda (stmt env)
+    (cases return-statement stmt
+      (return-with-value-stmt (val-exp) (interrupt-with-value (value-of-expression val-exp)))
+      (return-without-value-stmt () (interrupt-env env)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;
 
