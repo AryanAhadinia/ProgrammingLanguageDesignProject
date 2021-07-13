@@ -372,9 +372,7 @@
    [rest-exps expressions?]
    [last-exp expression?]])
 
-; required extractors
-(define last-sum-of-pairs (lambda (pairs) '())) ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
+; execute
 (define execute-program
   (lambda (pgm)
     (begin
@@ -435,85 +433,143 @@
       (return-without-value-stmt () (interrupt-env env)))))
 
 (define value-of-expression
-  (lambda (exp)
+  (lambda (exp env)
     (cases expression exp
-      (disjunction-exp (disjunction-op) (value-of-disjunction-expression exp)))))
+      (disjunction-exp (disjunction-op) (value-of-disjunction-expression exp env)))))
 
 (define value-of-disjunction-expression
-  (lambda (disjunction-exp)
+  (lambda (disjunction-exp env)
     (cases disjunction-expression disjunction-exp
       (simple-disjunction-exp (conjunction-op)
-                              (value-of-conjunction-expression conjunction-op))
+                              (value-of-conjunction-expression conjunction-op env))
       (complex-disjunction-exp (disjunction-op conjunction-op)
-                               (or
-                                (value-of-disjunction-expression disjunction-op)
-                                (value-of-conjunction-expression conjunction-op))))))
+                               (bool-val (or
+                                          (store-value->bool (value-of-disjunction-expression disjunction-op env))
+                                          (store-value->bool (value-of-conjunction-expression conjunction-op env))))))))
 
 (define value-of-conjunction-expression
-  (lambda (conjunction-exp)
+  (lambda (conjunction-exp env)
     (cases conjunction-expression conjunction-exp
       (simple-conjunction-exp (inversion-op)
-                              (value-of-inversion-expression inversion-op))
+                              (value-of-inversion-expression inversion-op env))
       (complex-conjunction-exp (conjunction-op inversion-op)
-                               (and
-                                (value-of-conjunction-expression conjunction-op)
-                                (value-of-inversion-expression inversion-op))))))
+                               (bool-val (and
+                                          (store-value->bool (value-of-conjunction-expression conjunction-op env))
+                                          (store-value->bool (value-of-inversion-expression inversion-op env))))))))
 
 (define value-of-inversion-expression
-  (lambda (inversion-exp)
+  (lambda (inversion-exp env)
     (cases inversion-expression inversion-exp
-      (not-inversion-exp (inversion-op) (not (value-of-inversion-expression inversion-op)))
-      (comprasion-inversion-exp (comparison-op) (value-of-comprasion-expression comparison-op)))))
+      (not-inversion-exp (inversion-op) (bool-val (not (store-value->bool (value-of-inversion-expression inversion-op env)))))
+      (comprasion-inversion-exp (comparison-op) (value-of-comprasion-expression comparison-op env)))))
 
 (define value-of-comprasion-expression
-  (lambda (comprasion-exp)
+  (lambda (comprasion-exp env)
     (cases comprasion-expression comprasion-exp
       (comparing-comparison-exp (sum-op pairs-op)
                                 (cases compare-operator-sum-pairs pairs-op
-                                  (single-operator-sum-pair (pair) (value-of-compare-operator-sum-pair sum-op pair))
+                                  (single-operator-sum-pair (pair) (value-of-compare-operator-sum-pair (value-of-sum-expression sum-op) pair env))
                                   (multi-operator-sum-pairs (rest-pairs last-pair)
-                                                            (if (value-of-comprasion-expression (comparing-comparison-exp sum-op rest-pairs))
-                                                                (value-of-compare-operator-sum-pair (last-sum-of-pairs rest-pairs) last-pair)
-                                                                #f))))
-      (no-comparison-exp (sum-op) (value-of-sum-expression sum-op)))))
+                                                            (if (store-value->bool (value-of-comprasion-expression (comparing-comparison-exp sum-op rest-pairs) env))
+                                                                (value-of-compare-operator-sum-pair (last-sum-of-pairs rest-pairs) last-pair env)
+                                                                (bool-val #f)))))
+      (no-comparison-exp (sum-op) (value-of-sum-expression sum-op env)))))
 
 (define value-of-compare-operator-sum-pair
-  (lambda (external-sum pair)
+  (lambda (external-sum pair env)
     (cases compare-operator-sum-pair pair
-      (eq-sum (sum-op) (= external-sum (value-of-sum-expression sum-op)))
-      (lt-sum (sum-op) (< external-sum (value-of-sum-expression sum-op)))
-      (gt-sum (sum-op) (> external-sum (value-of-sum-expression sum-op))))))
+      (eq-sum (sum-op) (bool-val (= (store-value->number external-sum) (store-value->number (value-of-sum-expression sum-op env)))))
+      (lt-sum (sum-op) (bool-val (< (store-value->number external-sum) (store-value->number (value-of-sum-expression sum-op env)))))
+      (gt-sum (sum-op) (bool-val (> (store-value->number external-sum) (store-value->number (value-of-sum-expression sum-op env))))))))
+
+(define last-sum-of-pairs
+  (lambda (pairs env)
+    (value-of-sum-expression (cases compare-operator-sum-pair (cases compare-operator-sum-pairs pairs
+                                       (single-operator-sum-pair (pair) pair)
+                                       (multi-operator-sum-pairs (rest-pairs last-pair) last-pair))
+                               (eq-sum (sum-op) sum-op)
+                               (lt-sum (sum-op) sum-op)
+                               (gt-sum (sum-op) sum-op))
+                             env)))
 
 (define value-of-sum-expression
-  (lambda (sum-exp)
+  (lambda (sum-exp env)
     (cases sum-expression sum-exp
-      (sum+ (sum-op term-op) (+ (value-of-sum-expression sum-op) (value-of-term-expression term-op)))
-      (sum- (sum-op term-op) (- (value-of-sum-expression sum-op) (value-of-term-expression term-op)))
-      (sum-nop (term-op) (value-of-term-expression term-op)))))
+      (sum+ (sum-op term-op) (let ([op1 (value-of-sum-expression sum-op env)]
+                                   [op2 (value-of-term-expression term-op env)])
+                               (cases store-value op1
+                                 (numeric-val (val) (numeric-val (+ (store-value->number op1)
+                                                                    (store-value->number op2))))
+                                 (bool-val (val) (bool-val (or (store-value->bool op1)
+                                                               (store-value->bool op2))))
+                                 (list-val (val) (list-val (append (store-value->list op1)
+                                                                   (store-value->list op2))))
+                                 (else 'error))))
+      (sum- (sum-op term-op) (numeric-val (- (store-value->number (value-of-sum-expression sum-op env))
+                                             (store-value->number (value-of-term-expression term-op env)))))
+      (sum-nop (term-op) (value-of-term-expression term-op env)))))
 
 (define value-of-term-expression
-  (lambda (term-exp)
+  (lambda (term-exp env)
     (cases term-expression term-exp
-      (term* (term-op factor-op) (* (value-of-term-expression term-op) (value-of-factor-expression factor-op)))
-      (term/ (term-op factor-op) (/ (value-of-term-expression term-op) (value-of-factor-expression factor-op)))
-      (term-nop (factor-op) (value-of-factor-expression factor-op)))))
+      (term* (term-op factor-op) (let ([op1 (value-of-term-expression term-op env)]
+                                       [op2 (value-of-factor-expression factor-op env)])
+                                   (cases store-value op1
+                                     (numeric-val (val) (numeric-val (* (store-value->number op1)
+                                                                        (store-value->number op2))))
+                                     (bool-val (val) (bool-val (and (store-value->bool op1)
+                                                                    (store-value->bool op2))))
+                                     (else 'error))))
+      (term/ (term-op factor-op) (numeric-val (/ (store-value->number (value-of-term-expression term-op env))
+                                                 (store-value->number (value-of-factor-expression factor-op env)))))
+      (term-nop (factor-op) (value-of-factor-expression factor-op env)))))
 
 (define value-of-factor-expression
-  (lambda (factor-exp)
+  (lambda (factor-exp env)
     (cases factor-expression factor-exp
-      (factor+ (factor-op) (* +1 (value-of-factor-expression factor-op)))
-      (factor- (factor-op) (* -1 (value-of-factor-expression factor-op)))
-      (factor-nop (power-op) (value-of-power-expression power-op)))))
+      (factor+ (factor-op) (numeric-val (* +1 (store-value->number (value-of-factor-expression factor-op env)))))
+      (factor- (factor-op) (numeric-val (* -1 (store-value->number (value-of-factor-expression factor-op env)))))
+      (factor-nop (power-op) (value-of-power-expression power-op env)))))
 
-(define value-of-power-expression ;todo
-  (lambda (power-exp)
+(define value-of-power-expression
+  (lambda (power-exp env)
     (cases power-expression power-exp
-      (power** (atom-op factor-op) (expt (value-of-atom atom-op) (value-of-factor-expression factor-op)))
-      (power-nop (primary-op) '()))))
+      (power** (atom-op factor-op) (numeric-val (expt (store-value->number (value-of-atom atom-op env))
+                                                      (store-value->number (value-of-factor-expression factor-op env)))))
+      (power-nop (primary-op) (value-of-primary primary-op env)))))
 
-(define value-of-primary '())
+(define value-of-primary (lambda (prmy-exp env) '())) ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define value-of-atom '())
+(define value-of-arguments ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  (lambda (args env)
+    (cases arguments args
+      (single-arg (arg) '())
+      (multi-args (rest last) '()))))
+
+(define value-of-atom
+  (lambda (atom-exp env)
+    (cases atom atom-exp
+      (atomic-id (id) (deref(apply-env(env id))))
+      (atomic-true () (bool-val #t))
+      (atomic-false () (bool-val #f))
+      (atomic-none () (none-val))
+      (atomic-number (num) (numeric-val num))
+      (atomic-list (list-exps) (value-of-list-type list-exps)))))
+
+(define value-of-list-type
+  (lambda (list-exps env)
+    (cases list-type list-exps
+      (dataful-list (exps) (list-val (value-of-expressions exps)))
+      (dataless-list () (list-val '())))))
+
+(define value-of-expressions
+  (lambda (exps env)
+    (cases expressions exps
+      (single-exp (exp)
+                  (list (value-of-expression exp env)))
+      (multi-exps (rest-exps last-exp)
+                  (append (value-of-expressions rest-exps env)
+                          (list (value-of-expression last-exp env)))))))
 
 ; lexer
 (define main-lexer
