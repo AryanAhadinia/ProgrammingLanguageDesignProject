@@ -234,17 +234,15 @@
 
 (define params->ids
   (lambda (prms)
-    (let iter ((result '()) (prms prms))
       (cases params prms
-        (single-param (prm) (append result (list (param-with-default->id prm))))
-        (multi-params (the-prms prm) (iter (append result (list (param-with-default->id prm))) (the-prms)))))))
+        (single-param (prm) (list (param-with-default->id prm)))
+        (multi-params (the-prms prm) (append (params->ids the-prms) (list (param-with-default->id prm)))))))
 
 (define params->exps
   (lambda (prms)
-    (let iter ((result '()) (prms prms))
       (cases params prms
-        (single-param (prm) (append result (list (param-with-default->exp prm))))
-        (multi-params (the-prms prm) (iter (append result (list (param-with-default->exp prm))) (the-prms)))))))
+        (single-param (prm) (list (param-with-default->exp prm)))
+        (multi-params (the-prms prm) (append (params->exps the-prms) (list (param-with-default->exp prm)))))))
       
 
 (define params->default-vals '()) ;aryan
