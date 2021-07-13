@@ -246,7 +246,7 @@
         (multi-params (the-prms prm) (iter (append result (list (param-with-default->exp prm))) (the-prms)))))))
       
 
-;params->deafult-vals ;aryan
+(define params->default-vals '()) ;aryan
 
 (define-datatype expression expression?
   [disjunction-exp
@@ -401,28 +401,23 @@
     (cases simple-statement stmt
       (assign-stmt (var val) (if (bounded? var)
                                  (setref! (apply-env env var) (value-of-expression val))
-                                 (extend-env var (newref (value-of-expression val))))
+                                 (extend-env var (newref (value-of-expression val)))))
       (return-stmt (return-stmt) (execute-return-statement return-stmt))
       (global-stmt (var) (extend-env var (apply-env-ignore-interrupt var) env))
       (pass-stmt () env)
       (break-stmt () (interrupt-with-value (numeric-val 0) env))
-      (continue-stmt () (interrupt-with-value (numeric-val 1) env))))))
-
-
-;;/
-
-;/;
+      (continue-stmt () (interrupt-with-value (numeric-val 1) env)))))
   
 (define execute-compound-statement
   (lambda (stmt env)
     (cases compound-statement stmt
       (function-def-with-param-stmt (id params stmts)
-                                    (extend-env id (newref (function-val (params->ids params) (params->default-vals params) stmts env)) env)
+                                    (extend-env id (newref (function-val (params->ids params) (params->default-vals params) stmts env)) env))
       (function-def-without-param-stmt (id stmts)
                                        (extend-env id (newref (function-val '() '() stmts env)) env))
       (if-stmt (condition on-true on-false)
                (remove-interrupt (execute-statements (if (store-value->bool (value-of-expression condition)) on-true on-false) env)))
-      (for-stmt (iterator iterating body) '())))))
+      (for-stmt (iterator iterating body) '()))))
 
 (define execute-return-statement
   (lambda (stmt env)
