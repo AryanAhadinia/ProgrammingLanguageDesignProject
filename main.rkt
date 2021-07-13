@@ -21,7 +21,6 @@
    [saved-env environment?]])
 
 ; unwrap
-
 (define store-value->function-name
   (lambda (val)
     (cases store-value val
