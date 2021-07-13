@@ -20,7 +20,14 @@
    [body statements?]
    [saved-env environment?]])
 
-; unwrap
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; unwrap
+
+(define store-value->function-name
+  (lambda (val)
+    (cases store-value val
+      (function-val (function-name bound-vars default-vals body saved-env) function-name)
+      (else 'error))))
+
 (define store-value->bool
   (lambda (val)
     (cases store-value val
