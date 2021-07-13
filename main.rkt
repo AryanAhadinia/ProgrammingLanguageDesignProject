@@ -4,6 +4,71 @@
 (require (lib "eopl.ss" "eopl"))
 (require parser-tools/lex (prefix-in : parser-tools/lex-sre) parser-tools/yacc)
 
+; store-value
+(define-datatype store-value store-value?
+  [none-val]
+  [numeric-val
+   [val number?]]
+  [bool-val
+   [val boolean?]]
+  [list-val
+   [val (list-of store-value?)]]
+  [function-val
+   [bound-vars (list-of symbol?)]
+   [default-vals (list-of store-value?)]
+   [body statements?]
+   [saved-env environment?]])
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; unwrap
+
+; store
+(define the-store 'uninitialized)
+
+(define empty-store
+  (lambda ()
+    '()))
+
+(define initialize-store!
+  (lambda ()
+    (set! the-store (empty-store))))
+
+(define newref (lambda (val)
+    (let ([next-ref (length the-store)])
+      (set! the-store (append the-store (list val)))
+      next-ref)))
+
+(define deref
+  (lambda (ref)
+    (list-ref the-store ref)))
+
+(define report-invalid-reference
+  (lambda (ref the-store)
+    (eopl:error 'setref "illegal reference ~s in store ~s" ref the-store)))
+
+(define setref!
+  (lambda (ref val)
+    (set! the-store
+          (letrec ([setref-inner (lambda (store1 ref1)
+                                   (cond [(null? store1) (report-invalid-reference ref the-store)]
+                                         [(zero? ref1) (cons val (cdr store1))]
+                                         [else (cons (car store1) (setref-inner (cdr store1) (- ref1 1)))]))])
+            (setref-inner the-store ref)))))
+
+(define (reference? val) (cond
+                           ((not (integer? val)) #f)
+                           ((< val 0) #f)
+                           (else #t)))
+
+; environment
+(define-datatype environment environment?
+  [empty-env]
+  [extend-env
+   [var symbol?]
+   [val reference?]
+   [rest-env environment?]]
+  [interrupt-env
+   [env environment?]])
+
 ; datatypes
 (define-datatype program program?
   [prog
@@ -399,8 +464,6 @@
 (define (evaluate path)
     (define lex-this (lambda (lexer input) (lambda () (lexer input))))
     (define my-lexer (lex-this main-lexer (open-input-string (file->string path))))
-  (let ((parser-res (main-parser my-lexer))) parser-res)
-  )
+  (let ((parser-res (main-parser my-lexer))) parser-res))
+
 (evaluate "testbench.txt")
-
-
