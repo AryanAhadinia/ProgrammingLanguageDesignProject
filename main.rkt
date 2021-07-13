@@ -20,7 +20,7 @@
    [body statements?]
    [saved-env environment?]])
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; unwrap
+; unwrap
 
 (define store-value->function-name
   (lambda (val)
