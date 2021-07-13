@@ -89,12 +89,12 @@
 
 (define-datatype simple-statement simple-statement?
   [assign-stmt
-   [assign-var string?]
+   [assign-var symbol?]
    [assign-val expression?]]
   [return-stmt
    [statement return-statement?]]
   [global-stmt
-   [variable string?]]
+   [variable symbol?]]
   [pass-stmt]
   [break-stmt]
   [continue-stmt])
@@ -106,24 +106,24 @@
 
 (define-datatype compound-statement compound-statement?
   [function-def-with-param-stmt
-   [id string?]
+   [id symbol?]
    [params params?] 
    [statements statements?]]
   [function-def-without-param-stmt
-   [id string?]
+   [id symbol?]
    [statements statements?]]
   [if-stmt
    [condition expression?]
    [on-true statements?]
    [on-false statements?]] ; instead else block
   [for-stmt
-   [iterator string?]
+   [iterator symbol?]
    [iterating expression?]
    [body statements?]])
 
 (define-datatype param-with-default param-with-default?
   [param
-   [id string?]
+   [id symbol?]
    [expression expression?]])
 
 (define-datatype params params?
@@ -235,7 +235,7 @@
 
 (define-datatype atom atom?
   [atomic-id
-   [id string?]]
+   [id symbol?]]
   [atomic-true]
   [atomic-false]
   [atomic-none]
@@ -347,7 +347,7 @@
             ((:or (:+ (char-range #\0 #\9)) (:: (:+ (char-range #\0 #\9)) #\. (:+ (char-range #\0 #\9)))) (token-NUM (string->number lexeme)))
             ((:& (repetition 1 +inf.0 (union (char-range #\a #\z) (char-range #\A #\Z) #\_ #\- (char-range #\0 #\9) ))
                  (complement (:or (:? "if") (:? "else") (:? "def") (:? "break") (:? "pass") (:? "continue") (:? "return") (:? "global")
-                                  (:? "for") (:? "in") (:? "or") (:? "and") (:? "not") (:? "True") (:? "False") (:? "None")))) (token-ID lexeme))
+                                  (:? "for") (:? "in") (:? "or") (:? "and") (:? "not") (:? "True") (:? "False") (:? "None")))) (token-ID (string->symbol lexeme)))
             ("+" (token-+))
             ("-" (token--))
             ("*" (token-*))
