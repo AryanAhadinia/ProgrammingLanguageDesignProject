@@ -20,7 +20,23 @@
    [saved-env environment?]])
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; unwrap
+(define store-value->bool
+  (lambda (val)
+    (cases store-value val
+      (bool-val (the-val) the-val)
+      (else 'error))))
 
+(define store-value->number
+  (lambda (val)
+    (cases store-value val
+      (numeric-val (the-val) the-val)
+      (else 'error))))
+
+(define store-value->list
+  (lambda (val)
+    (cases store-value val
+      (list-val (the-val) the-val)
+      (else 'error))))
 ; store
 (define the-store 'uninitialized)
 
@@ -119,7 +135,7 @@
 
 (define interrupt->numeric-val->value
   (lambda (env)
-    (let (store-val (interrupt->value env))
+    (let ((store-val (interrupt->value env)))
       (cases store-value store-val
         (numeric-val (val) val)
         (else 'error)))))
@@ -194,9 +210,17 @@
    [id symbol?]
    [exp expression?]])
 
-param-with-default->id
+(define param-with-default->id
+  (lambda (prm)
+    (cases param-with-default prm
+      (param (id exp) id)
+      (else 'error))))
 
-param-with-default->exp
+(define param-with-default->exp
+  (lambda (prm)
+    (cases param-with-default prm
+      (param (id exp) exp)
+      (else 'error))))
 
 (define-datatype params params?
   [single-param
@@ -205,11 +229,22 @@ param-with-default->exp
    [rest-params params?]
    [last-param param-with-default?]])
 
-params->ids
+(define params->ids
+  (lambda (prms)
+    (let iter ((result '()) (prms prms))
+      (cases params prms
+        (single-param (prm) (append result (list (param-with-default->id prm))))
+        (multi-params (the-prms prm) (iter (append result (list (param-with-default->id prm))) (the-prms)))))))
 
-params->exps
+(define params->exps
+  (lambda (prms)
+    (let iter ((result '()) (prms prms))
+      (cases params prms
+        (single-param (prm) (append result (list (param-with-default->exp prm))))
+        (multi-params (the-prms prm) (iter (append result (list (param-with-default->exp prm))) (the-prms)))))))
+      
 
-params->deafult-vals ;aryan
+;params->deafult-vals ;aryan
 
 (define-datatype expression expression?
   [disjunction-exp
@@ -372,22 +407,7 @@ params->deafult-vals ;aryan
 
 
 ;;/
-(define-datatype compound-statement compound-statement?
-  [function-def-with-param-stmt
-   [id symbol?]
-   [params params?] 
-   [statements statements?]]
-  [function-def-without-param-stmt
-   [id symbol?]
-   [statements statements?]]
-  [if-stmt
-   [condition expression?]
-   [on-true statements?]
-   [on-false statements?]]
-  [for-stmt
-   [iterator symbol?]
-   [iterating expression?]
-   [body statements?]])
+
 ;/;
   
 (define execute-compound-statement
@@ -402,9 +422,6 @@ params->deafult-vals ;aryan
 
 ;/;
 
-(define params->ids
-  (lambda (prms)
-    (cases )))
 
 (define execute-return-statement
   (lambda (stmt env)
