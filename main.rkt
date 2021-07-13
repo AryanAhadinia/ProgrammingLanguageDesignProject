@@ -192,7 +192,11 @@
 (define-datatype param-with-default param-with-default?
   [param
    [id symbol?]
-   [expression expression?]])
+   [exp expression?]])
+
+param-with-default->id
+
+param-with-default->exp
 
 (define-datatype params params?
   [single-param
@@ -200,6 +204,12 @@
   [multi-params
    [rest-params params?]
    [last-param param-with-default?]])
+
+params->ids
+
+params->exps
+
+params->deafult-vals ;aryan
 
 (define-datatype expression expression?
   [disjunction-exp
@@ -358,10 +368,43 @@
       (global-stmt (var) (extend-env var (apply-env-ignore-interrupt var) env))
       (pass-stmt () env)
       (break-stmt () (interrupt-with-value (numeric-val 0) env))
-      (continue-stmt () (interrupt-with-value (numeric-val 1) env)))))
+      (continue-stmt () (interrupt-with-value (numeric-val 1) env))))))
 
+
+;;/
+(define-datatype compound-statement compound-statement?
+  [function-def-with-param-stmt
+   [id symbol?]
+   [params params?] 
+   [statements statements?]]
+  [function-def-without-param-stmt
+   [id symbol?]
+   [statements statements?]]
+  [if-stmt
+   [condition expression?]
+   [on-true statements?]
+   [on-false statements?]]
+  [for-stmt
+   [iterator symbol?]
+   [iterating expression?]
+   [body statements?]])
+;/;
+  
 (define execute-compound-statement
-  (lambda (stmt env) '()))
+  (lambda (stmt env)
+    (cases compound-statement stmt
+      (function-def-with-param-stmt (id params stmts) '())
+      (function-def-without-param-stmt (id stmts) (extend-env id (newref (function-val '() '() stmts env)) env))
+      (if-stmt (condition on-true on-false) '())
+      (for-stmt (iterator iterating body) '()))))
+
+;;/
+
+;/;
+
+(define params->ids
+  (lambda (prms)
+    (cases )))
 
 (define execute-return-statement
   (lambda (stmt env)
