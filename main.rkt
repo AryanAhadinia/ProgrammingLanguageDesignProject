@@ -14,12 +14,13 @@
   [list-val
    [val (list-of store-value?)]]
   [function-val
+   [function-name symbol?]
    [bound-vars (list-of symbol?)]
    [default-vals (list-of store-value?)]
    [body statements?]
    [saved-env environment?]])
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;; unwrap
+; unwrap
 (define store-value->bool
   (lambda (val)
     (cases store-value val
@@ -243,9 +244,10 @@
       (cases params prms
         (single-param (prm) (list (param-with-default->exp prm)))
         (multi-params (the-prms prm) (append (params->exps the-prms) (list (param-with-default->exp prm)))))))
-      
 
-(define params->default-vals '()) ;aryan
+(define params->default-vals
+  (lambda (exps env)
+    (map (lambda (exp) (value-of-expression exp env)) exps)))
 
 (define-datatype expression expression?
   [disjunction-exp
@@ -408,9 +410,9 @@
   (lambda (stmt env)
     (cases compound-statement stmt
       (function-def-with-param-stmt (id params stmts)
-                                    (extend-env id (newref (function-val (params->ids params) (params->default-vals params) stmts env)) env))
+                                    (extend-env id (newref (function-val id (params->ids params) (params->default-vals params) stmts env)) env))
       (function-def-without-param-stmt (id stmts)
-                                       (extend-env id (newref (function-val '() '() stmts env)) env))
+                                       (extend-env id (newref (function-val id '() '() stmts env)) env))
       (if-stmt (condition on-true on-false)
                (remove-interrupt (execute-statements (if (store-value->bool (value-of-expression condition)) on-true on-false) env)))
       (for-stmt (iterator iterating body)
@@ -536,9 +538,64 @@
                                                       (store-value->number (value-of-factor-expression factor-op env)))))
       (power-nop (primary-op) (value-of-primary primary-op env)))))
 
-(define value-of-primary (lambda (prmy-exp env) '())) ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;<
+(define-datatype primary primary?
+  [atomic-primary
+   [atom-op atom?]]
+  [list-call
+   [list-op primary?]
+   [index-op expression?]]
+  [function-with-arg-call
+   [function-op primary?]
+   [arguments-op arguments?]]
+  [function-without-arg-call
+   [function-op primary?]])
 
-(define value-of-arguments ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(define-datatype store-value store-value?
+  [none-val]
+  [numeric-val
+   [val number?]]
+  [bool-val
+   [val boolean?]]
+  [list-val
+   [val (list-of store-value?)]]
+  [function-val
+   [bound-vars (list-of symbol?)]
+   [default-vals (list-of store-value?)]
+   [body statements?]
+   [saved-env environment?]])
+;>
+
+(define value-of-primary
+  (lambda (prmy-exp env)
+    (cases primary prmy-exp
+      (atomic-primary (atom-op) (value-of-atom atom-op env))
+      (list-call (list-op index-op) (list-ref (store-value->list (value-of-primary list-op env))
+                                              (store-value->number (value-of-expression index-op env))))
+      (function-with-arg-call (function-op arguments-op) '())
+      (function-without-arg-call (function-op) (cases store-value (value-of-primary function-op env)
+                                                 (function-val (bound-vars default-vals body saved-env)
+                                                               ())
+                                                 (else 'error))))))
+
+(define extend-env-for-call
+  (lambda (function-val vars vals saved-env runtime-env)
+    (extend-env-with-saved-env vars vals saved-env (extend-env    function-val (interrupt-env runtime-env)))))
+
+(define extend-env-with-saved-env
+  (lambda (vars vals saved-env env)
+    ()))
+
+;<
+(define-datatype arguments arguments?
+  [single-arg
+   [arg expression?]]
+  [multi-args
+   [rest-args arguments?]
+   [last-arg expression?]])
+;>
+
+(define value-of-arguments
   (lambda (args env)
     (cases arguments args
       (single-arg (arg) '())
