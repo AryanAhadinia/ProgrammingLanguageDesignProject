@@ -111,7 +111,7 @@
     (cases environment env
       (extend-env (var val rest-env) (if (eqv? search-var var)
                                          val
-                                         (apply-env (rest-env search-var))))
+                                         (apply-env rest-env search-var)))
       (else (eopl:error 'apply-env "No binding for ~s" search-var)))))
 
 (define bounded?
@@ -119,7 +119,7 @@
     (cases environment env
       (extend-env (var val rest-env) (if (eqv? search-var var)
                                          #t
-                                         (apply-env (rest-env search-var))))
+                                         (apply-env rest-env search-var)))
       (else #f))))
 
 (define check-interrupt-free
@@ -403,9 +403,9 @@
 (define execute-simple-statement
   (lambda (stmt env)
     (cases simple-statement stmt
-      (assign-stmt (var val) (if (bounded? var)
-                                 (setref! (apply-env env var) (value-of-expression val))
-                                 (extend-env var (newref (value-of-expression val)))))
+      (assign-stmt (var val) (if (bounded? env var)
+                                 (setref! (apply-env env var) (value-of-expression val env))
+                                 (extend-env var (newref (value-of-expression val env)))))
       (return-stmt (return-stmt) (execute-return-statement return-stmt))
       (global-stmt (var) (extend-env var (apply-env-ignore-interrupt var) env))
       (pass-stmt () env)
@@ -416,13 +416,13 @@
   (lambda (stmt env)
     (cases compound-statement stmt
       (function-def-with-param-stmt (id params stmts)
-                                    (extend-env id (newref (function-val id (params->ids params) (params->default-vals params) stmts env)) env))
+                                    (extend-env id (newref (function-val id (params->ids params) (params->default-vals (params->exps params) env) stmts env)) env))
       (function-def-without-param-stmt (id stmts)
                                        (extend-env id (newref (function-val id '() '() stmts env)) env))
       (if-stmt (condition on-true on-false)
-               (remove-interrupt (execute-statements (if (store-value->bool (value-of-expression condition)) on-true on-false) env)))
+               (remove-interrupt (execute-statements (if (store-value->bool (value-of-expression condition env)) on-true on-false) env)))
       (for-stmt (iterator iterating body)
-                (let ([iterating-list (store-value->list (value-of-expression iterating))])
+                (let ([iterating-list (store-value->list (value-of-expression iterating env))])
                   (if (null? iterating-list)
                       env
                       (let ([new-env (execute-statements body (extend-env iterator (newref (car iterating-list)) env))])
@@ -441,7 +441,7 @@
 (define value-of-expression
   (lambda (exp env)
     (cases expression exp
-      (disjunction-exp (disjunction-op) (value-of-disjunction-expression exp env)))))
+      (disjunction-exp (disjunction-op) (value-of-disjunction-expression disjunction-op env)))))
 
 (define value-of-disjunction-expression
   (lambda (disjunction-exp env)
@@ -609,22 +609,13 @@
   (lambda (vars vals env)
     (cond
       [(null? vals) env]
-      [else (extend-env-with-saved-env (cdr vars) (cdr vals) (extend-env (car vars) (newref (car vals)) env))])))
-
-;<
-(define-datatype arguments arguments?
-  [single-arg
-   [arg expression?]]
-  [multi-args
-   [rest-args arguments?]
-   [last-arg expression?]])
-;>
+      [else (extend-env-with-vals (cdr vars) (cdr vals) (extend-env (car vars) (newref (car vals)) env))])))
 
 (define value-of-arguments
   (lambda (args env)
     (cases arguments args
-      (single-arg (arg) '())
-      (multi-args (rest last) '()))))
+      (single-arg (arg) (list (value-of-expression arg env)))
+      (multi-args (rest last) (append (value-of-arguments rest env) (list (value-of-expression last env)))))))
 
 (define value-of-atom
   (lambda (atom-exp env)
@@ -639,7 +630,7 @@
 (define value-of-list-type
   (lambda (list-exps env)
     (cases list-type list-exps
-      (dataful-list (exps) (list-val (value-of-expressions exps)))
+      (dataful-list (exps) (list-val (value-of-expressions exps env)))
       (dataless-list () (list-val '())))))
 
 (define value-of-expressions
@@ -774,6 +765,6 @@
 (define (evaluate path)
     (define lex-this (lambda (lexer input) (lambda () (lexer input))))
     (define my-lexer (lex-this main-lexer (open-input-string (file->string path))))
-  (let ((parser-res (main-parser my-lexer))) parser-res))
+  (let ((parser-res (main-parser my-lexer))) (execute-program parser-res)))
 
 (evaluate "testbench.txt")
