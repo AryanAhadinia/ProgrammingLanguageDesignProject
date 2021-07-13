@@ -259,7 +259,67 @@
 ; required extractors
 (define last-sum-of-pairs (lambda (pairs) '()))
 
-; value-of-expression calculation
+;;;;;;;;;;;;;;;;;;;;;;;
+(define execute-program
+  (lambda (pgm)
+    (initialize-store!)
+    (cases program pgm
+      (prog (stmts) (execute-statements stmts (empty-env))))))
+
+(define execute-statements
+  (lambda (stmts env)
+    (cases statements stmts
+      (single-stmt (stmt) (execute-statement stmt env))
+      (multi-stmts (stmts stmt) (execute-statements stmts (execute-statement stmt env))))))
+
+(define execute-statement
+  (lambda (stmt env)
+    (if '(chech-interrupt-free env) ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+        (cases statement stmt
+          (simple-stmt (stmt) '())
+          (compound-stmt (stmt) '()))
+        env)))
+
+;;;;;;
+
+(define-datatype simple-statement simple-statement?
+  [assign-stmt
+   [assign-var symbol?]
+   [assign-val expression?]]
+  [return-stmt
+   [statement return-statement?]]
+  [global-stmt
+   [variable symbol?]]
+  [pass-stmt]
+  [break-stmt]
+  [continue-stmt])
+
+(define-datatype return-statement return-statement?
+  [return-with-value-stmt
+   [return-value expression?]]
+  [return-without-value-stmt])
+
+
+;/;
+
+(define execute-simple-statement
+  (lambda (stmt env)
+    (cases simple-statement stmt
+      (assign-stmt (var val) '())
+      (return-stmt (return-stmt) '())
+      (global-stmt (var) '())
+      (pass-stmt () '())
+      (break-stmt () '())
+      (continue-stmt () '()))))
+
+(define execute-compound-statement
+  (lambda (stmt env) ()))
+
+(define execute-return-statement
+  (lambda (stmt env) ())
+
+;;;;;;;;;;;;;;;;;;;;;;;
+
 (define value-of-expression
   (lambda (exp)
     (cases expression exp
