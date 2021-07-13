@@ -9,4 +9,9 @@ def function2(x = 4 , y = 7, z = 6):
 a = 10;
 b = 9;
 c = 7;
-
+d = function2();
+e = function2(a,b,c);
+f = function1();
+g = print(d);
+h = print(e);
+i = print(f);

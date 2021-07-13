@@ -380,7 +380,7 @@
                    ((Primary) (power-nop $1)))
             (Primary ((Atom) (atomic-primary $1))
                      ((Primary open_q Expression close_q) (list-call $1 $3))
-                     ((Primary o_c_p) (function-without-arg-call $1))
+                     ((Primary open_par close_par) (function-without-arg-call $1))
                      ((Primary open_par Arguments close_par) (function-with-arg-call $1 $3)))
             (Arguments ((Expression) (single-arg $1))
                        ((Arguments cama Expression) (multi-args $1 $3)))
