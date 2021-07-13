@@ -135,7 +135,9 @@
   (lambda (prior-env posterior-env)
     (cases environment prior-env
       (empty-env () posterior-env)
-      (extend-env (var val rest-env) (extend-env var val (concat-envs (rest-env posterior-env)))))))
+      (extend-env (var val rest-env) (extend-env var val (concat-envs (rest-env posterior-env))))
+      (interrupt-env (env) (interrupt-env (concat-envs (env posterior-env))))
+      (interrupt-with-value (val env) (interrupt-with-value val (concat-envs (env posterior-env)))))))
    
 ; datatypes
 (define-datatype program program?
@@ -340,9 +342,10 @@ params->deafult-vals ;aryan
 ;;;;;;;;;;;;;;;;;;;;;;;
 (define execute-program
   (lambda (pgm)
-    (initialize-store!)
-    (cases program pgm
-      (prog (stmts) (execute-statements stmts (empty-env))))))
+    (begin
+      (initialize-store!)
+      (cases program pgm
+        (prog (stmts) (execute-statements stmts (empty-env)))))))
 
 (define execute-statements
   (lambda (stmts env)
@@ -393,18 +396,13 @@ params->deafult-vals ;aryan
 (define execute-compound-statement
   (lambda (stmt env)
     (cases compound-statement stmt
-      (function-def-with-param-stmt (id params stmts) '())
-      (function-def-without-param-stmt (id stmts) (extend-env id (newref (function-val '() '() stmts env)) env))
-      (if-stmt (condition on-true on-false) '())
-      (for-stmt (iterator iterating body) '()))))
-
-;;/
-
-;/;
-
-(define params->ids
-  (lambda (prms)
-    (cases )))
+      (function-def-with-param-stmt (id params stmts)
+                                    (extend-env id (newref (function-val (params->ids params) (params->default-vals params) stmts env)) env)
+      (function-def-without-param-stmt (id stmts)
+                                       (extend-env id (newref (function-val '() '() stmts env)) env))
+      (if-stmt (condition on-true on-false)
+               (remove-interrupt (execute-statements (if (store-value->bool (value-of-expression condition)) on-true on-false) env)))
+      (for-stmt (iterator iterating body) '())))))
 
 (define execute-return-statement
   (lambda (stmt env)
