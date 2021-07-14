@@ -91,11 +91,37 @@
    [var symbol?]
    [val reference?]
    [rest-env environment?]]
-  [interrupt-env
+  [interrupt-env ; for env separation
    [env environment?]]
-  [interrupt-with-value
+  [interrupt-with-value ; for return value
    [val store-value?]
+   [env environment?]]
+  [interrupt-continue ; for continue
+   [env environment?]]
+  [interrupt-break ; for break
    [env environment?]])
+
+(define bounded?
+  (lambda (env search-var)
+    (cases environment env
+      (extend-env (var val rest-env) (if (eqv? search-var var)
+                                         #t
+                                         (bounded? rest-env search-var)))
+      (else #f))))
+
+interrupted?
+
+remove-break-interrupt
+
+remove-continue-interrupt
+
+(define apply-env
+  (lambda (env search-var)
+    (cases environment env
+      (extend-env (var val rest-env) (if (eqv? search-var var)
+                                         val
+                                         (apply-env rest-env search-var)))
+      (else (eopl:error 'apply-env "No binding for ~s" search-var)))))
 
 (define apply-env-ignore-interrupt
   (lambda (env search-var)
@@ -107,56 +133,20 @@
       (interrupt-env (the-env) (apply-env-ignore-interrupt the-env search-var))
       (interrupt-with-value (val the-env) (apply-env-ignore-interrupt the-env search-var)))))
 
-(define apply-env
-  (lambda (env search-var)
-    (cases environment env
-      (extend-env (var val rest-env) (if (eqv? search-var var)
-                                         val
-                                         (apply-env rest-env search-var)))
-      (else (eopl:error 'apply-env "No binding for ~s" search-var)))))
-
-(define bounded?
-  (lambda (env search-var)
-    (cases environment env
-      (extend-env (var val rest-env) (if (eqv? search-var var)
-                                         #t
-                                         (bounded? rest-env search-var)))
-      (else #f))))
-
-(define check-interrupt-free
-  (lambda (env)
-    (cases environment env
-      (interrupt-env (the-env) #f)
-      (interrupt-with-value (val the-env) #f)
-      (else #t))))
-
-(define interrupt-with-value?
-  (lambda (env)
-    (cases environment env
-      (interrupt-with-value (val the-env) #t)
-      (else #f))))
-
 (define interrupt->value
   (lambda (env)
     (cases environment env
       (interrupt-with-value (val the-env) val)
       (else 'error))))
 
-(define interrupt->numeric-val->value
+(define interrupt->numeric-val->value ;;;;;;;;;;;;;
   (lambda (env)
     (let ((store-val (interrupt->value env)))
       (cases store-value store-val
         (numeric-val (val) val)
         (else 'error)))))
 
-(define remove-interrupt
-  (lambda (env)
-    (cases environment env
-      (interrupt-with-value (val the-env) the-env)
-      (interrupt-env (the-env) the-env)
-      (else env))))
-
-(define concat-envs
+(define concat-envs ;;;;;;;;;;;;;;
   (lambda (prior-env posterior-env)
     (cases environment prior-env
       (empty-env () posterior-env)
@@ -395,11 +385,11 @@
 
 (define execute-statement
   (lambda (stmt env)
-    (if (check-interrupt-free env)
+    (if (interrupted? env)
+        env
         (cases statement stmt
           (simple-stmt (stmt) (execute-simple-statement stmt env))
-          (compound-stmt (stmt) (execute-compound-statement stmt env)))
-        env)))
+          (compound-stmt (stmt) (execute-compound-statement stmt env))))))
 
 (define execute-simple-statement
   (lambda (stmt env)
@@ -411,8 +401,8 @@
       (return-stmt (return-stmt) (execute-return-statement return-stmt env))
       (global-stmt (var) (extend-env var (apply-env-ignore-interrupt env var) env))
       (pass-stmt () env)
-      (break-stmt () (interrupt-with-value (numeric-val 0) env))
-      (continue-stmt () (interrupt-with-value (numeric-val 1) env)))))
+      (break-stmt () (interrupt-break env))
+      (continue-stmt () (interrupt-continue) env)))))
   
 (define execute-compound-statement
   (lambda (stmt env)
@@ -422,23 +412,26 @@
       (function-def-without-param-stmt (id stmts)
                                        (extend-env id (newref (function-val id '() '() stmts env)) env))
       (if-stmt (condition on-true on-false)
-               (execute-statements (if (store-value->bool (value-of-expression condition env)) on-true  on-false) env))
+               (remove-continue-interrupt
+                (remove-break-interrupt
+                 (execute-statements
+                  (if (store-value->bool (value-of-expression condition env)) on-true  on-false)
+                  env)))
       (for-stmt (iterator iterating body)
-                (let ([iterating-list (store-value->list (value-of-expression iterating env))])
-                  (if (null? iterating-list)
-                      env
-                      (let ([new-env (execute-statements body (extend-env iterator (newref (car iterating-list)) env))])
-                        (if (check-interrupt-free new-env)
-                            (execute-compound-statement (for-stmt iterator (list-val (cdr iterating-list)) body) new-env)
-                            (if (= 0 (interrupt->numeric-val->value new-env))
-                                new-env
-                                (execute-compound-statement (for-stmt iterator (list-val (cdr iterating-list))) (remove-interrupt new-env)))))))))))
+                (remove-break-interrupt
+                 (foldl
+                  (lambda (iterator-val current-env)
+                    (remove-continue-interrupt
+                     (execute-statements
+                      body
+                      (extend-env iterator (newref iterator-val) current-env))))
+                  (store-value->list (value-of-expression iterating env)))))))))
 
 (define execute-return-statement
   (lambda (stmt env)
     (cases return-statement stmt
       (return-with-value-stmt (val-exp) (interrupt-with-value (value-of-expression val-exp env) env))
-      (return-without-value-stmt () (interrupt-env env)))))
+      (return-without-value-stmt () (interrupt-with-value (none-val) env)))))
 
 (define value-of-expression
   (lambda (exp env)
@@ -567,11 +560,9 @@
                                                                                             default-vals
                                                                                             saved-env
                                                                                             env))])
-                                                                             (if (check-interrupt-free new-env)
-                                                                                 (none-val)
-                                                                                 (if (interrupt-with-value? new-env)
-                                                                                     (interrupt->value new-env)
-                                                                                     (none-val)))))
+                                                                             (if (interrupted? new-env)
+                                                                                 (interrupt->value new-env)
+                                                                                 (none-val))))
                                                              (else 'errorprim))))
       (function-without-arg-call (function-op) (let ([func-val (value-of-primary function-op env)])
                                                  (cases store-value func-val
@@ -585,11 +576,9 @@
                                                                                   default-vals
                                                                                   saved-env
                                                                                   env))])
-                                                                   (if (check-interrupt-free new-env)
-                                                                       (none-val)
-                                                                       (if (interrupt-with-value? new-env)
-                                                                           (interrupt->value new-env)
-                                                                           (none-val)))))
+                                                                   (if (interrupted? new-env)
+                                                                       (interrupt->value new-env)
+                                                                       (none-val))))
                                                    (else 'errorprim)))))))
 
 (define extend-env-for-call
