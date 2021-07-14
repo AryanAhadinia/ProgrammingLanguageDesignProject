@@ -21,6 +21,16 @@
    [body statements?]
    [saved-env environment?]])
 
+(define store-value->string
+  (lambda (store-val)
+    (cases store-value store-val
+      (none-val () "None")
+      (numeric-val (num) (number->string num))
+      (bool-val (val) (if val "True" "False"))
+      (list-val (val) (string-append "[" (foldl (lambda (v s) (string-append s ", " v)) "" (map store-value->string val) "]")))
+      (function-val (function-name bound-vars default-vals body saved-env)
+                    (string-append "function" (symbol->string function-name))))))
+
 ; unwrap
 (define store-value->function-val->function-name
   (lambda (val)
@@ -349,7 +359,9 @@
    [function-op primary?]
    [arguments-op arguments?]]
   [function-without-arg-call
-   [function-op primary?]])
+   [function-op primary?]]
+  [print
+   [arg expression?]])
 
 (define-datatype arguments arguments?
   [single-arg
@@ -591,7 +603,10 @@
                                                                    (if (interrupted? new-env)
                                                                        (interrupt->value new-env)
                                                                        (none-val))))
-                                                   (else 'errorprim)))))))
+                                                   (else 'errorprim))))
+      (print (exp) (let ([val (value-of-expression exp env)])
+                     (display (store-value->string val))
+                     val)))))
 
 (define extend-env-for-call
   (lambda (func-val vars bound-vals default-vals saved-env runtime-env)
