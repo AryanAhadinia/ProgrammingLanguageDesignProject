@@ -426,7 +426,7 @@
       (global-stmt (var) (extend-env var (apply-env-ignore-interrupt env var) env))
       (pass-stmt () env)
       (break-stmt () (interrupt-break env))
-      (continue-stmt () ((interrupt-continue) env)))))
+      (continue-stmt () (interrupt-continue env)))))
   
 (define execute-compound-statement
   (lambda (stmt env)
@@ -436,11 +436,9 @@
       (function-def-without-param-stmt (id stmts)
                                        (extend-env id (newref (function-val id '() '() stmts env)) env))
       (if-stmt (condition on-true on-false)
-               (remove-continue-interrupt
-                (remove-break-interrupt
                  (execute-statements
                   (if (store-value->bool (value-of-expression condition env)) on-true  on-false)
-                  env))))
+                  env))
       (for-stmt (iterator iterating body)
                 (remove-break-interrupt
                  (foldl
@@ -449,6 +447,7 @@
                      (execute-statements
                       body
                       (extend-env iterator (newref iterator-val) current-env))))
+                  env
                   (store-value->list (value-of-expression iterating env))))))))
 
 (define execute-return-statement
@@ -786,7 +785,7 @@
     (define lex-this (lambda (lexer input) (lambda () (lexer input))))
     (define my-lexer (lex-this main-lexer (open-input-string (file->string path))))
   (let ((parser-res (main-parser my-lexer))) (begin
-                                             ;(trace execute-return-statement)
+                                             (trace execute-statement)
                                                (execute-program parser-res))))
 
-(evaluate "testbench-complicated-syntax.txt")
+(evaluate "testbench-for.txt")
