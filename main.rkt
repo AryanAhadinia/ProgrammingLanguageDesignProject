@@ -109,11 +109,26 @@
                                          (bounded? rest-env search-var)))
       (else #f))))
 
-interrupted?
+(define interrupted?
+  (lambda (env)
+    (cases environment env
+      (interrupt-env (the-env) #t)
+      (interrupt-with-value (the-env val) #t)
+      (interrupt-continue (the-env) #t)
+      (interrupt-break (the-env) #t)
+      (else #f))))
 
-remove-break-interrupt
+(define remove-break-interrupt
+  (lambda (env)
+    (cases environment env
+      (interrupt-break (the-env) the-env)
+      (else env))))
 
-remove-continue-interrupt
+(define remove-continue-interrupt
+  (lambda (env)
+    (cases environment env
+      (interrupt-continue (the-env) the-env)
+      (else env))))
 
 (define apply-env
   (lambda (env search-var)
@@ -131,7 +146,9 @@ remove-continue-interrupt
                                          val
                                          (apply-env-ignore-interrupt rest-env search-var)))
       (interrupt-env (the-env) (apply-env-ignore-interrupt the-env search-var))
-      (interrupt-with-value (val the-env) (apply-env-ignore-interrupt the-env search-var)))))
+      (interrupt-with-value (val the-env) (apply-env-ignore-interrupt the-env search-var))
+      (interrupt-break (the-env) (apply-env-ignore-interrupt the-env search-var))
+      (interrupt-continue (the-env) (apply-env-ignore-interrupt the-env search-var)))))
 
 (define interrupt->value
   (lambda (env)
@@ -139,20 +156,15 @@ remove-continue-interrupt
       (interrupt-with-value (val the-env) val)
       (else 'error))))
 
-(define interrupt->numeric-val->value ;;;;;;;;;;;;;
-  (lambda (env)
-    (let ((store-val (interrupt->value env)))
-      (cases store-value store-val
-        (numeric-val (val) val)
-        (else 'error)))))
-
-(define concat-envs ;;;;;;;;;;;;;;
+(define concat-envs 
   (lambda (prior-env posterior-env)
     (cases environment prior-env
       (empty-env () posterior-env)
       (extend-env (var val rest-env) (extend-env var val (concat-envs rest-env posterior-env)))
       (interrupt-env (env) (interrupt-env (concat-envs (env posterior-env))))
-      (interrupt-with-value (val env) (interrupt-with-value val (concat-envs (env posterior-env)))))))
+      (interrupt-with-value (val env) (interrupt-with-value val (concat-envs (env posterior-env))))
+      (interrupt-break (env) (interrupt-break (concat-envs (env posterior-env))))
+      (interrupt-continue (env) (interrupt-continue (concat-envs (env posterior-env)))))))
    
 ; datatypes
 (define-datatype program program?
@@ -402,7 +414,7 @@ remove-continue-interrupt
       (global-stmt (var) (extend-env var (apply-env-ignore-interrupt env var) env))
       (pass-stmt () env)
       (break-stmt () (interrupt-break env))
-      (continue-stmt () (interrupt-continue) env)))))
+      (continue-stmt () ((interrupt-continue) env)))))
   
 (define execute-compound-statement
   (lambda (stmt env)
@@ -416,7 +428,7 @@ remove-continue-interrupt
                 (remove-break-interrupt
                  (execute-statements
                   (if (store-value->bool (value-of-expression condition env)) on-true  on-false)
-                  env)))
+                  env))))
       (for-stmt (iterator iterating body)
                 (remove-break-interrupt
                  (foldl
@@ -425,7 +437,7 @@ remove-continue-interrupt
                      (execute-statements
                       body
                       (extend-env iterator (newref iterator-val) current-env))))
-                  (store-value->list (value-of-expression iterating env)))))))))
+                  (store-value->list (value-of-expression iterating env))))))))
 
 (define execute-return-statement
   (lambda (stmt env)
