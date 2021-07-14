@@ -119,7 +119,7 @@
     (cases environment env
       (extend-env (var val rest-env) (if (eqv? search-var var)
                                          #t
-                                         (apply-env rest-env search-var)))
+                                         (bounded? rest-env search-var)))
       (else #f))))
 
 (define check-interrupt-free
@@ -159,7 +159,7 @@
   (lambda (prior-env posterior-env)
     (cases environment prior-env
       (empty-env () posterior-env)
-      (extend-env (var val rest-env) (extend-env var val (concat-envs (rest-env posterior-env))))
+      (extend-env (var val rest-env) (extend-env var val (concat-envs rest-env posterior-env)))
       (interrupt-env (env) (interrupt-env (concat-envs (env posterior-env))))
       (interrupt-with-value (val env) (interrupt-with-value val (concat-envs (env posterior-env)))))))
    
@@ -405,8 +405,8 @@
     (cases simple-statement stmt
       (assign-stmt (var val) (if (bounded? env var)
                                  (setref! (apply-env env var) (value-of-expression val env))
-                                 (extend-env var (newref (value-of-expression val env)))))
-      (return-stmt (return-stmt) (execute-return-statement return-stmt))
+                                 (extend-env var (newref (value-of-expression val env)) env)))
+      (return-stmt (return-stmt) (execute-return-statement return-stmt env))
       (global-stmt (var) (extend-env var (apply-env-ignore-interrupt var) env))
       (pass-stmt () env)
       (break-stmt () (interrupt-with-value (numeric-val 0) env))
@@ -435,7 +435,7 @@
 (define execute-return-statement
   (lambda (stmt env)
     (cases return-statement stmt
-      (return-with-value-stmt (val-exp) (interrupt-with-value (value-of-expression val-exp env)))
+      (return-with-value-stmt (val-exp) (interrupt-with-value (value-of-expression val-exp env) env))
       (return-without-value-stmt () (interrupt-env env)))))
 
 (define value-of-expression
@@ -561,7 +561,7 @@
                                                                                            (extend-env-for-call
                                                                                             func-val
                                                                                             bound-vars
-                                                                                            (value-of-arguments arguments-op)
+                                                                                            (value-of-arguments arguments-op env)
                                                                                             default-vals
                                                                                             saved-env
                                                                                             env))])
@@ -620,7 +620,7 @@
 (define value-of-atom
   (lambda (atom-exp env)
     (cases atom atom-exp
-      (atomic-id (id) (deref(apply-env(env id))))
+      (atomic-id (id) (deref(apply-env env id)))
       (atomic-true () (bool-val #t))
       (atomic-false () (bool-val #f))
       (atomic-none () (none-val))
@@ -765,6 +765,8 @@
 (define (evaluate path)
     (define lex-this (lambda (lexer input) (lambda () (lexer input))))
     (define my-lexer (lex-this main-lexer (open-input-string (file->string path))))
-  (let ((parser-res (main-parser my-lexer))) (execute-program parser-res)))
+  (let ((parser-res (main-parser my-lexer))) (begin (display (execute-program parser-res))
+                                                    (display (list-ref the-store 6))
+                                                    )))
 
 (evaluate "testbench.txt")

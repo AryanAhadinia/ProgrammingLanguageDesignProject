@@ -6,12 +6,9 @@ def function1():
 def function2(x = 4 , y = 7, z = 6):
 	return x**2 + y**2 + z**2;
 ;
-a = 10;
-b = 9;
-c = 7;
-d = function2();
-e = function2(a,b,c);
-f = function1();
-g = print(d);
-h = print(e);
-i = print(f);
+
+b = function2();
+
+
+
+
