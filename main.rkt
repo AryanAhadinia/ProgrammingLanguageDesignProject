@@ -133,6 +133,12 @@
       (interrupt-break (the-env) #t)
       (else #f))))
 
+(define interrupted-break?
+  (lambda (env)
+    (cases environment env
+      (interrupt-break (the-env) #t)
+      (else #f))))
+
 (define remove-break-interrupt
   (lambda (env)
     (cases environment env
@@ -451,7 +457,9 @@
                     (remove-continue-interrupt
                      (execute-statements
                       body
-                      (extend-env iterator (newref iterator-val) current-env))))
+                      (if (interrupted-break? current-env)
+                          current-env
+                          (extend-env iterator (newref iterator-val) current-env)))))
                   env
                   (store-value->list (value-of-expression iterating env))))))))
 
