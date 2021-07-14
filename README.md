@@ -1,12 +1,9 @@
-# Design of Programming Languages project
-Final course project.
+# Final Project of _Design of Programming Languages_
+_Design of Programming Languages_ at _Computer Engineering Department, Sharif University of Technology, Tehran, Iran_
 
-## Course
-_Design of Programming Languages_ at Computer Engineering Department at Sharif University of Technology, Tehran, Iran
+Instructor: _**[Dr. M. Izadi](http://sharif.edu/~izadi/)**_
 
-Instructor: **_Dr. Izadi_**
-
-## Students
+## Contributing Students
 | Name | Student Number |
 | :-: | :-: |
 | _**[Aryan Ahadinia](https://github.com/AryanAhadinia)**_ | _98103878_ |
