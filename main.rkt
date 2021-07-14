@@ -100,12 +100,12 @@
 (define apply-env-ignore-interrupt
   (lambda (env search-var)
     (cases environment env
-      (empty-env () (eopl:error 'apply-env "No binding for ~s" search-var))
+      (empty-env () (eopl:error 'apply-env-ignore-interrupt "No binding for ~s" search-var))
       (extend-env (var val rest-env) (if (eqv? search-var var)
                                          val
-                                         (apply-env (rest-env search-var))))
-      (interrupt-env (the-env) (apply-env (the-env search-var)))
-      (interrupt-with-value (val the-env) (apply-env (the-env search-var))))))
+                                         (apply-env-ignore-interrupt rest-env search-var)))
+      (interrupt-env (the-env) (apply-env-ignore-interrupt the-env search-var))
+      (interrupt-with-value (val the-env) (apply-env-ignore-interrupt the-env search-var)))))
 
 (define apply-env
   (lambda (env search-var)
@@ -409,7 +409,7 @@
                                         env)
                                  (extend-env var (newref (value-of-expression val env)) env)))
       (return-stmt (return-stmt) (execute-return-statement return-stmt env))
-      (global-stmt (var) (extend-env var (apply-env-ignore-interrupt var) env))
+      (global-stmt (var) (extend-env var (apply-env-ignore-interrupt env var) env))
       (pass-stmt () env)
       (break-stmt () (interrupt-with-value (numeric-val 0) env))
       (continue-stmt () (interrupt-with-value (numeric-val 1) env)))))
@@ -429,7 +429,7 @@
                       env
                       (let ([new-env (execute-statements body (extend-env iterator (newref (car iterating-list)) env))])
                         (if (check-interrupt-free new-env)
-                            (execute-compound-statement (for-stmt iterator (list-val (cdr iterating-list))) new-env)
+                            (execute-compound-statement (for-stmt iterator (list-val (cdr iterating-list)) body) new-env)
                             (if (= 0 (interrupt->numeric-val->value new-env))
                                 new-env
                                 (execute-compound-statement (for-stmt iterator (list-val (cdr iterating-list))) (remove-interrupt new-env)))))))))))
@@ -627,7 +627,7 @@
       (atomic-false () (bool-val #f))
       (atomic-none () (none-val))
       (atomic-number (num) (numeric-val num))
-      (atomic-list (list-exps) (value-of-list-type list-exps)))))
+      (atomic-list (list-exps) (value-of-list-type list-exps env)))))
 
 (define value-of-list-type
   (lambda (list-exps env)
@@ -768,10 +768,10 @@
     (define lex-this (lambda (lexer input) (lambda () (lexer input))))
     (define my-lexer (lex-this main-lexer (open-input-string (file->string path))))
   (let ((parser-res (main-parser my-lexer))) (begin
-                                               (trace value-of-primary)
+                                              ;(trace execute-return-statement)
                                                (execute-program parser-res)
-                                               ;(display (list-ref the-store 0))    
+                                               (display  (list-ref the-store 0)))    
                                                     )
-                                                    ))
+                                                    )
 
-(evaluate "testbench-recurssion.txt")
+(evaluate "testbench-for.txt")

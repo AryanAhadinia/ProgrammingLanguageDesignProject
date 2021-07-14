@@ -1,0 +1,5 @@
+def function1(a = 3, b = 4):
+	return a**2 + b**2;
+	a = 5;
+;
+c = function1(4);
