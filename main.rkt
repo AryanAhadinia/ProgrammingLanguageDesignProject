@@ -650,7 +650,7 @@
             ((:or (:+ (char-range #\0 #\9)) (:: (:+ (char-range #\0 #\9)) #\. (:+ (char-range #\0 #\9)))) (token-NUM (string->number lexeme)))
             ((:& (repetition 1 +inf.0 (union (char-range #\a #\z) (char-range #\A #\Z) #\_ (char-range #\0 #\9) ))
                  (complement (:or (:? "if") (:? "else") (:? "def") (:? "break") (:? "pass") (:? "continue") (:? "return") (:? "global")
-                                  (:? "for") (:? "in") (:? "or") (:? "and") (:? "not") (:? "True") (:? "False") (:? "None")))) (token-ID (string->symbol lexeme)))
+                                  (:? "for") (:? "in") (:? "or") (:? "and") (:? "not") (:? "True") (:? "False") (:? "None") (:? "print")))) (token-ID (string->symbol lexeme)))
             ("+" (token-+))
             ("-" (token--))
             ("*" (token-*))
@@ -685,13 +685,14 @@
             ("True" (token-True))
             ("False" (token-False))
             ("None" (token-None))
+            ("print" (token-print))
             (whitespace (main-lexer input-port))
             ((eof) (token-EOF))))
 
 ; tokens
 (define-tokens value-tokens (NUM ID))
 (define-empty-tokens op-tokens (EOF sc pass break continue = return global def open_par close_par dd o_c_p_d cama
-                            if else for in or and not == < > + - * / ** open_q close_q o_c_p True False None))
+                            if else for in or and not == < > + - * / ** open_q close_q o_c_p True False None print))
 
 ; parser
 (define main-parser
@@ -759,7 +760,7 @@
                   ((NUM) (atomic-number $1))
                   ((List) (atomic-list $1)))
             (List ((open_q Expressions close_q) (dataful-list $2))
-                  ((open_q close_q) (dataless-list)))
+                  ((o_c_p) (dataless-list)))
             (Expressions ((Expressions cama Expression) (multi-exps $1 $3))
                          ((Expression) (single-exp $1))))))
 
@@ -768,9 +769,9 @@
     (define lex-this (lambda (lexer input) (lambda () (lexer input))))
     (define my-lexer (lex-this main-lexer (open-input-string (file->string path))))
   (let ((parser-res (main-parser my-lexer))) (begin
-                                             ;(trace execute-return-statement)
+                                             (trace execute-return-statement)
                                                (execute-program parser-res)
-                                               (display  (list-ref the-store 0)))    
+                                               (display  (list-ref the-store 1)))    
                                                     )
                                                     )
 
