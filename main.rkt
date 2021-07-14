@@ -23,13 +23,18 @@
 
 (define store-value->string
   (lambda (store-val)
-    (cases store-value store-val
-      (none-val () "None")
-      (numeric-val (num) (number->string num))
-      (bool-val (val) (if val "True" "False"))
-      (list-val (val) (string-append "[" (foldl (lambda (v s) (string-append s ", " v)) "" (map store-value->string val)) "]"))
-      (function-val (function-name bound-vars default-vals body saved-env)
-                    (string-append "function" (symbol->string function-name))))))
+    (string-append
+     (cases store-value store-val
+       (none-val () "None")
+       (numeric-val (num) (number->string num))
+       (bool-val (val) (if val "True" "False"))
+       (list-val (val) (let ([strs (map store-value->string val)])
+                         (string-append "[" (foldl (lambda (v s) (string-append s ", " v)) (car strs) (cdr strs)) "]")))
+       (function-val (function-name bound-vars default-vals body saved-env)
+                     (string-append "function" (symbol->string function-name))))
+     "\n")))
+
+
 
 ; unwrap
 (define store-value->function-val->function-name
