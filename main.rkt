@@ -21,6 +21,21 @@
    [body statements?]
    [saved-env environment?]])
 
+(define store-value->string
+  (lambda (store-val)
+    (string-append
+     (cases store-value store-val
+       (none-val () "None")
+       (numeric-val (num) (number->string num))
+       (bool-val (val) (if val "True" "False"))
+       (list-val (val) (let ([strs (map store-value->string val)])
+                         (string-append "[" (foldl (lambda (v s) (string-append s ", " v)) (car strs) (cdr strs)) "]")))
+       (function-val (function-name bound-vars default-vals body saved-env)
+                     (string-append "function" (symbol->string function-name))))
+     "\n")))
+
+
+
 ; unwrap
 (define store-value->function-val->function-name
   (lambda (val)
@@ -115,6 +130,12 @@
       (interrupt-env (the-env) #t)
       (interrupt-with-value (the-env val) #t)
       (interrupt-continue (the-env) #t)
+      (interrupt-break (the-env) #t)
+      (else #f))))
+
+(define interrupted-break?
+  (lambda (env)
+    (cases environment env
       (interrupt-break (the-env) #t)
       (else #f))))
 
@@ -349,7 +370,9 @@
    [function-op primary?]
    [arguments-op arguments?]]
   [function-without-arg-call
-   [function-op primary?]])
+   [function-op primary?]]
+  [print-call
+   [arg expression?]])
 
 (define-datatype arguments arguments?
   [single-arg
@@ -414,7 +437,7 @@
       (global-stmt (var) (extend-env var (apply-env-ignore-interrupt env var) env))
       (pass-stmt () env)
       (break-stmt () (interrupt-break env))
-      (continue-stmt () ((interrupt-continue) env)))))
+      (continue-stmt () (interrupt-continue env)))))
   
 (define execute-compound-statement
   (lambda (stmt env)
@@ -424,11 +447,9 @@
       (function-def-without-param-stmt (id stmts)
                                        (extend-env id (newref (function-val id '() '() stmts env)) env))
       (if-stmt (condition on-true on-false)
-               (remove-continue-interrupt
-                (remove-break-interrupt
                  (execute-statements
                   (if (store-value->bool (value-of-expression condition env)) on-true  on-false)
-                  env))))
+                  env))
       (for-stmt (iterator iterating body)
                 (remove-break-interrupt
                  (foldl
@@ -436,7 +457,10 @@
                     (remove-continue-interrupt
                      (execute-statements
                       body
-                      (extend-env iterator (newref iterator-val) current-env))))
+                      (if (interrupted-break? current-env)
+                          current-env
+                          (extend-env iterator (newref iterator-val) current-env)))))
+                  env
                   (store-value->list (value-of-expression iterating env))))))))
 
 (define execute-return-statement
@@ -591,7 +615,10 @@
                                                                    (if (interrupted? new-env)
                                                                        (interrupt->value new-env)
                                                                        (none-val))))
-                                                   (else 'errorprim)))))))
+                                                   (else 'errorprim))))
+      (print-call (exp) (let ([val (value-of-expression exp env)])
+                     (display (store-value->string val))
+                     val)))))
 
 (define extend-env-for-call
   (lambda (func-val vars bound-vals default-vals saved-env runtime-env)
@@ -686,14 +713,14 @@
             ("True" (token-True))
             ("False" (token-False))
             ("None" (token-None))
-            ("print" (token-print))
+            ("print" (token-println))
             (whitespace (main-lexer input-port))
             ((eof) (token-EOF))))
 
 ; tokens
 (define-tokens value-tokens (NUM ID))
 (define-empty-tokens op-tokens (EOF sc pass break continue = return global def open_par close_par dd o_c_p_d cama
-                            if else for in or and not == < > + - * / ** open_q close_q o_c_p True False None print))
+                            if else for in or and not == < > + - * / ** open_q close_q o_c_p True False None println))
 
 ; parser
 (define main-parser
@@ -751,7 +778,8 @@
             (Primary ((Atom) (atomic-primary $1))
                      ((Primary open_q Expression close_q) (list-call $1 $3))
                      ((Primary open_par close_par) (function-without-arg-call $1))
-                     ((Primary open_par Arguments close_par) (function-with-arg-call $1 $3)))
+                     ((Primary open_par Arguments close_par) (function-with-arg-call $1 $3))
+                     ((println open_par Expression close_par) (print-call $3)))
             (Arguments ((Expression) (single-arg $1))
                        ((Arguments cama Expression) (multi-args $1 $3)))
             (Atom ((ID) (atomic-id $1))
@@ -770,10 +798,7 @@
     (define lex-this (lambda (lexer input) (lambda () (lexer input))))
     (define my-lexer (lex-this main-lexer (open-input-string (file->string path))))
   (let ((parser-res (main-parser my-lexer))) (begin
-                                             (trace execute-return-statement)
-                                               (execute-program parser-res)
-                                               (display  (list-ref the-store 1)))    
-                                                    )
-                                                    )
+                                             ;(trace execute-statement)
+                                               (execute-program parser-res))))
 
-(evaluate "testbench-complicated-syntax.txt")
+(evaluate "testbench-recurssion.txt")
