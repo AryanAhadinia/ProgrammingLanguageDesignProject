@@ -27,7 +27,7 @@
       (none-val () "None")
       (numeric-val (num) (number->string num))
       (bool-val (val) (if val "True" "False"))
-      (list-val (val) (string-append "[" (foldl (lambda (v s) (string-append s ", " v)) "" (map store-value->string val) "]")))
+      (list-val (val) (string-append "[" (foldl (lambda (v s) (string-append s ", " v)) "" (map store-value->string val)) "]"))
       (function-val (function-name bound-vars default-vals body saved-env)
                     (string-append "function" (symbol->string function-name))))))
 
@@ -360,7 +360,7 @@
    [arguments-op arguments?]]
   [function-without-arg-call
    [function-op primary?]]
-  [print
+  [print-call
    [arg expression?]])
 
 (define-datatype arguments arguments?
@@ -604,7 +604,7 @@
                                                                        (interrupt->value new-env)
                                                                        (none-val))))
                                                    (else 'errorprim))))
-      (print (exp) (let ([val (value-of-expression exp env)])
+      (print-call (exp) (let ([val (value-of-expression exp env)])
                      (display (store-value->string val))
                      val)))))
 
@@ -701,14 +701,14 @@
             ("True" (token-True))
             ("False" (token-False))
             ("None" (token-None))
-            ("print" (token-print))
+            ("print" (token-println))
             (whitespace (main-lexer input-port))
             ((eof) (token-EOF))))
 
 ; tokens
 (define-tokens value-tokens (NUM ID))
 (define-empty-tokens op-tokens (EOF sc pass break continue = return global def open_par close_par dd o_c_p_d cama
-                            if else for in or and not == < > + - * / ** open_q close_q o_c_p True False None print))
+                            if else for in or and not == < > + - * / ** open_q close_q o_c_p True False None println))
 
 ; parser
 (define main-parser
@@ -766,7 +766,8 @@
             (Primary ((Atom) (atomic-primary $1))
                      ((Primary open_q Expression close_q) (list-call $1 $3))
                      ((Primary open_par close_par) (function-without-arg-call $1))
-                     ((Primary open_par Arguments close_par) (function-with-arg-call $1 $3)))
+                     ((Primary open_par Arguments close_par) (function-with-arg-call $1 $3))
+                     ((println open_par Expression close_par) (print-call $3)))
             (Arguments ((Expression) (single-arg $1))
                        ((Arguments cama Expression) (multi-args $1 $3)))
             (Atom ((ID) (atomic-id $1))
@@ -785,10 +786,7 @@
     (define lex-this (lambda (lexer input) (lambda () (lexer input))))
     (define my-lexer (lex-this main-lexer (open-input-string (file->string path))))
   (let ((parser-res (main-parser my-lexer))) (begin
-                                             (trace execute-return-statement)
-                                               (execute-program parser-res)
-                                               (display  (list-ref the-store 1)))    
-                                                    )
-                                                    )
+                                             ;(trace execute-return-statement)
+                                               (execute-program parser-res))))
 
 (evaluate "testbench-complicated-syntax.txt")
