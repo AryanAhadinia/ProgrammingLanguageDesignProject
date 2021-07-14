@@ -1,0 +1,15 @@
+def fib(n = 5):
+	if n == 0:
+		return 1;
+	else:
+		if n == 1:
+		return 1;
+	else:
+		b =  fib(n-1); 
+		c =  fib(n-2);
+		d = b + c;
+		return d;
+	;
+	;
+;
+a = fib();

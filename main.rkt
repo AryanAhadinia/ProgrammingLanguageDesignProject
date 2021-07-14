@@ -3,6 +3,7 @@
 ; adding required dependencies
 (require (lib "eopl.ss" "eopl"))
 (require parser-tools/lex (prefix-in : parser-tools/lex-sre) parser-tools/yacc)
+(require racket/trace)
 
 ; store-value
 (define-datatype store-value store-value?
@@ -404,7 +405,8 @@
   (lambda (stmt env)
     (cases simple-statement stmt
       (assign-stmt (var val) (if (bounded? env var)
-                                 (setref! (apply-env env var) (value-of-expression val env))
+                                 (begin (setref! (apply-env env var) (value-of-expression val env))
+                                        env)
                                  (extend-env var (newref (value-of-expression val env)) env)))
       (return-stmt (return-stmt) (execute-return-statement return-stmt env))
       (global-stmt (var) (extend-env var (apply-env-ignore-interrupt var) env))
@@ -420,7 +422,7 @@
       (function-def-without-param-stmt (id stmts)
                                        (extend-env id (newref (function-val id '() '() stmts env)) env))
       (if-stmt (condition on-true on-false)
-               (remove-interrupt (execute-statements (if (store-value->bool (value-of-expression condition env)) on-true on-false) env)))
+               (remove-interrupt (execute-statements (if (store-value->bool (value-of-expression condition env)) on-true  on-false) env)))
       (for-stmt (iterator iterating body)
                 (let ([iterating-list (store-value->list (value-of-expression iterating env))])
                   (if (null? iterating-list)
@@ -474,7 +476,7 @@
     (cases comprasion-expression comprasion-exp
       (comparing-comparison-exp (sum-op pairs-op)
                                 (cases compare-operator-sum-pairs pairs-op
-                                  (single-operator-sum-pair (pair) (value-of-compare-operator-sum-pair (value-of-sum-expression sum-op) pair env))
+                                  (single-operator-sum-pair (pair) (value-of-compare-operator-sum-pair (value-of-sum-expression sum-op env) pair env))
                                   (multi-operator-sum-pairs (rest-pairs last-pair)
                                                             (if (store-value->bool (value-of-comprasion-expression (comparing-comparison-exp sum-op rest-pairs) env))
                                                                 (value-of-compare-operator-sum-pair (last-sum-of-pairs rest-pairs) last-pair env)
@@ -513,7 +515,7 @@
                                                                (store-value->bool op2))))
                                  (list-val (val) (list-val (append (store-value->list op1)
                                                                    (store-value->list op2))))
-                                 (else 'error))))
+                                 (else 'errorsum))))
       (sum- (sum-op term-op) (numeric-val (- (store-value->number (value-of-sum-expression sum-op env))
                                              (store-value->number (value-of-term-expression term-op env)))))
       (sum-nop (term-op) (value-of-term-expression term-op env)))))
@@ -528,7 +530,7 @@
                                                                         (store-value->number op2))))
                                      (bool-val (val) (bool-val (and (store-value->bool op1)
                                                                     (store-value->bool op2))))
-                                     (else 'error))))
+                                     (else 'errorterm))))
       (term/ (term-op factor-op) (numeric-val (/ (store-value->number (value-of-term-expression term-op env))
                                                  (store-value->number (value-of-factor-expression factor-op env)))))
       (term-nop (factor-op) (value-of-factor-expression factor-op env)))))
@@ -570,7 +572,7 @@
                                                                                  (if (interrupt-with-value? new-env)
                                                                                      (interrupt->value new-env)
                                                                                      (none-val)))))
-                                                             (else 'error))))
+                                                             (else 'errorprim))))
       (function-without-arg-call (function-op) (let ([func-val (value-of-primary function-op env)])
                                                  (cases store-value func-val
                                                    (function-val (function-name bound-vars default-vals body saved-env)
@@ -588,7 +590,7 @@
                                                                        (if (interrupt-with-value? new-env)
                                                                            (interrupt->value new-env)
                                                                            (none-val)))))
-                                                   (else 'error)))))))
+                                                   (else 'errorprim)))))))
 
 (define extend-env-for-call
   (lambda (func-val vars bound-vals default-vals saved-env runtime-env)
@@ -646,7 +648,7 @@
 (define main-lexer
            (lexer
             ((:or (:+ (char-range #\0 #\9)) (:: (:+ (char-range #\0 #\9)) #\. (:+ (char-range #\0 #\9)))) (token-NUM (string->number lexeme)))
-            ((:& (repetition 1 +inf.0 (union (char-range #\a #\z) (char-range #\A #\Z) #\_ #\- (char-range #\0 #\9) ))
+            ((:& (repetition 1 +inf.0 (union (char-range #\a #\z) (char-range #\A #\Z) #\_ (char-range #\0 #\9) ))
                  (complement (:or (:? "if") (:? "else") (:? "def") (:? "break") (:? "pass") (:? "continue") (:? "return") (:? "global")
                                   (:? "for") (:? "in") (:? "or") (:? "and") (:? "not") (:? "True") (:? "False") (:? "None")))) (token-ID (string->symbol lexeme)))
             ("+" (token-+))
@@ -765,8 +767,11 @@
 (define (evaluate path)
     (define lex-this (lambda (lexer input) (lambda () (lexer input))))
     (define my-lexer (lex-this main-lexer (open-input-string (file->string path))))
-  (let ((parser-res (main-parser my-lexer))) (begin (display (execute-program parser-res))
-                                                    (display (list-ref the-store 6))
-                                                    )))
+  (let ((parser-res (main-parser my-lexer))) (begin
+                                               (trace value-of-primary)
+                                               (execute-program parser-res)
+                                               ;(display (list-ref the-store 0))    
+                                                    )
+                                                    ))
 
-(evaluate "testbench.txt")
+(evaluate "testbench-recurssion.txt")
