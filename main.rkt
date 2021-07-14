@@ -422,7 +422,7 @@
       (function-def-without-param-stmt (id stmts)
                                        (extend-env id (newref (function-val id '() '() stmts env)) env))
       (if-stmt (condition on-true on-false)
-               (remove-interrupt (execute-statements (if (store-value->bool (value-of-expression condition env)) on-true  on-false) env)))
+               (execute-statements (if (store-value->bool (value-of-expression condition env)) on-true  on-false) env))
       (for-stmt (iterator iterating body)
                 (let ([iterating-list (store-value->list (value-of-expression iterating env))])
                   (if (null? iterating-list)
@@ -479,7 +479,7 @@
                                   (single-operator-sum-pair (pair) (value-of-compare-operator-sum-pair (value-of-sum-expression sum-op env) pair env))
                                   (multi-operator-sum-pairs (rest-pairs last-pair)
                                                             (if (store-value->bool (value-of-comprasion-expression (comparing-comparison-exp sum-op rest-pairs) env))
-                                                                (value-of-compare-operator-sum-pair (last-sum-of-pairs rest-pairs) last-pair env)
+                                                                (value-of-compare-operator-sum-pair (last-sum-of-pairs rest-pairs env) last-pair env)
                                                                 (bool-val #f)))))
       (no-comparison-exp (sum-op) (value-of-sum-expression sum-op env)))))
 
@@ -768,10 +768,10 @@
     (define lex-this (lambda (lexer input) (lambda () (lexer input))))
     (define my-lexer (lex-this main-lexer (open-input-string (file->string path))))
   (let ((parser-res (main-parser my-lexer))) (begin
-                                              ;(trace execute-return-statement)
+                                             ;(trace execute-return-statement)
                                                (execute-program parser-res)
                                                (display  (list-ref the-store 0)))    
                                                     )
                                                     )
 
-(evaluate "testbench-for.txt")
+(evaluate "testbench-complicated-syntax.txt")

@@ -1,8 +1,12 @@
-def fact(n = 2):
-	if n == 1:
-		return 1;
+def fib(n = 10):
+	if n == 0:
+		return 0;
 	else:
-		return fact(n - 1);
+		if n == 1:
+			return 1;
+		else:
+			return fib(n - 1) + fib(n - 2);
+		;
 	;
 ;
-a = fact();
+a = fib();
