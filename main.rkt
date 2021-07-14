@@ -798,7 +798,7 @@
     (define lex-this (lambda (lexer input) (lambda () (lexer input))))
     (define my-lexer (lex-this main-lexer (open-input-string (file->string path))))
   (let ((parser-res (main-parser my-lexer))) (begin
-                                             (trace execute-statement)
+                                             ;(trace execute-statement)
                                                (execute-program parser-res))))
 
-(evaluate "testbench-for.txt")
+(evaluate "testbench-complicated-syntax.txt")
