@@ -32,7 +32,7 @@
 
 (define store-value->string
   (lambda (store-val)
-    (cases store-value (force-lazy store-val)
+    (cases store-value store-val
       (none-val () "None")
       (numeric-val (num) (number->string num))
       (bool-val (val) (if val "True" "False"))
@@ -47,25 +47,25 @@
 ; unwrap
 (define store-value->function-val->function-name
   (lambda (val)
-    (cases store-value (force-lazy val)
+    (cases store-value val
       (function-val (function-name bound-vars default-vals body saved-env) function-name)
       (else 'error))))
 
 (define store-value->bool
   (lambda (val)
-    (cases store-value (force-lazy val)
+    (cases store-value val
       (bool-val (the-val) the-val)
       (else 'error))))
 
 (define store-value->number
   (lambda (val)
-    (cases store-value (force-lazy val)
+    (cases store-value val
       (numeric-val (the-val) the-val)
       (else 'error))))
 
 (define store-value->list
   (lambda (val)
-    (cases store-value (force-lazy val)
+    (cases store-value val
       (list-val (the-val) the-val)
       (else 'error))))
 
@@ -658,7 +658,9 @@
 (define value-of-atom
   (lambda (atom-exp env)
     (cases atom atom-exp
-      (atomic-id (id) (deref(apply-env env id)))
+      (atomic-id (id) (let ([evaluted-val (force-lazy (deref (apply-env env id)))])
+                        (setref! (apply-env env id) evaluted-val)
+                        evaluted-val))
       (atomic-true () (bool-val #t))
       (atomic-false () (bool-val #f))
       (atomic-none () (none-val))
