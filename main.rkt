@@ -807,4 +807,6 @@
 (define (evaluate path)
   (define lex-this (lambda (lexer input) (lambda () (lexer input))))
   (define my-lexer (lex-this main-lexer (open-input-string (file->string path))))
-  (let ((parser-res (main-parser my-lexer))) (execute-program parser-res)))
+  (let ((parser-res (main-parser my-lexer))) (begin
+                                               (execute-program parser-res)
+                                               "Program terminated.")))
