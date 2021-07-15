@@ -19,7 +19,16 @@
    [bound-vars (list-of symbol?)]
    [default-vals (list-of store-value?)]
    [body statements?]
-   [saved-env environment?]])
+   [saved-env environment?]]
+  [lazy-val
+   [exp expression?]
+   [env environment?]])
+
+(define force-lazy
+  (lambda (store-val)
+    (cases store-value store-val
+      (lazy-val (exp env) (value-of-expression exp env))
+      (else store-val))))
 
 (define store-value->string
   (lambda (store-val)
@@ -37,25 +46,25 @@
 ; unwrap
 (define store-value->function-val->function-name
   (lambda (val)
-    (cases store-value val
+    (cases store-value (force-lazy val)
       (function-val (function-name bound-vars default-vals body saved-env) function-name)
       (else 'error))))
 
 (define store-value->bool
   (lambda (val)
-    (cases store-value val
+    (cases store-value (force-lazy val)
       (bool-val (the-val) the-val)
       (else 'error))))
 
 (define store-value->number
   (lambda (val)
-    (cases store-value val
+    (cases store-value (force-lazy val)
       (numeric-val (the-val) the-val)
       (else 'error))))
 
 (define store-value->list
   (lambda (val)
-    (cases store-value val
+    (cases store-value (force-lazy val)
       (list-val (the-val) the-val)
       (else 'error))))
 
@@ -428,9 +437,9 @@
   (lambda (stmt env)
     (cases simple-statement stmt
       (assign-stmt (var val) (if (bounded? env var)
-                                 (begin (setref! (apply-env env var) (value-of-expression val env))
+                                 (begin (setref! (apply-env env var) (lazy-val val env))
                                         env)
-                                 (extend-env var (newref (value-of-expression val env)) env)))
+                                 (extend-env var (newref (lazy-val val env)) env)))
       (return-stmt (return-stmt) (execute-return-statement return-stmt env))
       (global-stmt (var) (extend-env var (apply-env-ignore-interrupt env var) env))
       (pass-stmt () env)
@@ -799,4 +808,4 @@
                                                ;(trace execute-statement)
                                                (execute-program parser-res))))
 
-(evaluate "tests/test-lazy.txt")
+(evaluate "tests/test-func.txt")
