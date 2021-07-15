@@ -1,0 +1,21 @@
+def car(l = [0]):
+    return l[0];
+;
+
+def cdr(l = [0]):
+    temp = False;
+    newl = [];
+    for i in l:
+        if temp:
+            newl = newl + [i];
+        else:
+            temp = True;
+        ;
+    ;
+    return newl;
+;
+
+a = [1, 2, 3];
+x = print(car(a));
+x = print(cdr(a));
+
