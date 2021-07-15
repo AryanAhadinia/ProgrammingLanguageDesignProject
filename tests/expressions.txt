@@ -7,10 +7,10 @@ a = print(a);
 a = False + True + False;
 a = print(a);
 
-a = 4 + 3 - 2 - 1;
+a = 4.5 + 3 - 2 - 1 * 2.1;
 a = print(a);
 
-a = 1 * 2 * 3 * 4;
+a = 6.25 ** 0.5;
 a = print(a);
 
 a = 6 * 7 / 4;
