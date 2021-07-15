@@ -550,14 +550,14 @@
 (define value-of-term-expression
   (lambda (term-exp env)
     (cases term-expression term-exp
-      (term* (term-op factor-op) (let ([op1 (value-of-term-expression term-op env)]
-                                       [op2 (value-of-factor-expression factor-op env)])
-                                   (cases store-value op1
-                                     (numeric-val (val) (numeric-val (* (store-value->number op1)
-                                                                        (store-value->number op2))))
-                                     (bool-val (val) (bool-val (and (store-value->bool op1)
-                                                                    (store-value->bool op2))))
-                                     (else 'errorterm))))
+      (term* (term-op factor-op) (cases store-value (value-of-term-expression term-op env)
+                                   (numeric-val (val) (numeric-val (if (= 0 val)
+                                                                       0
+                                                                       (* val (store-value->number (value-of-factor-expression factor-op env))))))
+                                   (bool-val (val) (bool-val (if (not val)
+                                                                 #f
+                                                                 (and val (store-value->bool (value-of-factor-expression factor-op env))))))
+                                   (else 'errorterm)))
       (term/ (term-op factor-op) (numeric-val (/ (/ (store-value->number (value-of-term-expression term-op env))
                                                     (store-value->number (value-of-factor-expression factor-op env))) 1.0)))
       (term-nop (factor-op) (value-of-factor-expression factor-op env)))))
