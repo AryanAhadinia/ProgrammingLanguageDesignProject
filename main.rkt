@@ -560,8 +560,8 @@
                                      (bool-val (val) (bool-val (and (store-value->bool op1)
                                                                     (store-value->bool op2))))
                                      (else 'errorterm))))
-      (term/ (term-op factor-op) (numeric-val (/ (store-value->number (value-of-term-expression term-op env))
-                                                 (store-value->number (value-of-factor-expression factor-op env)))))
+      (term/ (term-op factor-op) (numeric-val (/ (/ (store-value->number (value-of-term-expression term-op env))
+                                                    (store-value->number (value-of-factor-expression factor-op env))) 1.0)))
       (term-nop (factor-op) (value-of-factor-expression factor-op env)))))
 
 (define value-of-factor-expression
@@ -795,10 +795,10 @@
 
 ; test
 (define (evaluate path)
-    (define lex-this (lambda (lexer input) (lambda () (lexer input))))
-    (define my-lexer (lex-this main-lexer (open-input-string (file->string path))))
+  (define lex-this (lambda (lexer input) (lambda () (lexer input))))
+  (define my-lexer (lex-this main-lexer (open-input-string (file->string path))))
   (let ((parser-res (main-parser my-lexer))) (begin
-                                             ;(trace execute-statement)
+                                               ;(trace execute-statement)
                                                (execute-program parser-res))))
 
-(evaluate "testbench-recurssion.txt")
+(evaluate "tests/test-expressions.txt")
