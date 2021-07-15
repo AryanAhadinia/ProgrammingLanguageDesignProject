@@ -1,0 +1,16 @@
+def f(a = 0):
+	return a + 10;
+;
+def g(a = 0):
+	return a**2;
+;
+def h(a = 0):
+	return a/3;
+;
+def j(a = 0):
+	return a - 6;
+;
+list_f = [f,g,h,j];
+x = 4;
+x = print(list_f[3](list_f[2](list_f[1](list_f[0](x)))));
+

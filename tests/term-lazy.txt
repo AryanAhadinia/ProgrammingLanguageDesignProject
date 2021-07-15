@@ -1,0 +1,10 @@
+def func_1(a = 0):
+	a = print(a);
+	return a;
+;
+def func_2(a = False):
+	a = print(a);
+	return a;
+;
+x = print(func_1(1) * func_1(2) * func_1(0) * func_1(5));
+y = print(func_2(True) * func_2(False) * func_2(True) * func_2(False));

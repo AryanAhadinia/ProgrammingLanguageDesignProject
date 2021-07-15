@@ -808,3 +808,5 @@
 (evaluate "tests/rec-global.txt")
 (evaluate "tests/recuresive-global.txt")
 (evaluate "tests/recurssion.txt")
+(evaluate "tests/term-lazy.txt")
+(evaluate "tests/list.txt")
