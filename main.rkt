@@ -23,16 +23,14 @@
 
 (define store-value->string
   (lambda (store-val)
-    (string-append
-     (cases store-value store-val
-       (none-val () "None")
-       (numeric-val (num) (number->string num))
-       (bool-val (val) (if val "True" "False"))
-       (list-val (val) (let ([strs (map store-value->string val)])
-                         (string-append "[" (foldl (lambda (v s) (string-append s ", " v)) (car strs) (cdr strs)) "]")))
-       (function-val (function-name bound-vars default-vals body saved-env)
-                     (string-append "function" (symbol->string function-name))))
-     "\n")))
+    (cases store-value store-val
+      (none-val () "None")
+      (numeric-val (num) (number->string num))
+      (bool-val (val) (if val "True" "False"))
+      (list-val (val) (let ([strs (map store-value->string val)])
+                        (string-append "[" (foldl (lambda (v s) (string-append s ", " v)) (car strs) (cdr strs)) "]")))
+      (function-val (function-name bound-vars default-vals body saved-env)
+                    (string-append "function" (symbol->string function-name))))))
 
 
 
@@ -617,7 +615,7 @@
                                                                        (none-val))))
                                                    (else 'errorprim))))
       (print-call (exp) (let ([val (value-of-expression exp env)])
-                     (display (store-value->string val))
+                     (display (string-append (store-value->string val) "\n"))
                      val)))))
 
 (define extend-env-for-call
