@@ -14,8 +14,25 @@ def cdr(l = [0]):
     ;
     return newl;
 ;
-
-a = [1, 2, 3];
-x = print(car(a));
-x = print(cdr(a));
+def f(a = 0):
+	return a + 10;
+;
+def g(a = 0):
+	return a**2;
+;
+def h(a = 0):
+	return a/3;
+;
+def j(a = 0):
+	return a - 6;
+;
+list_f = [f,g,h,j];
+def main(list = [], x = 0):
+	if list == []:
+		return x;
+	else:
+		return main( cdr(list), car(list)(x) );
+	;
+;
+x = print(main(list_f, 5));
 

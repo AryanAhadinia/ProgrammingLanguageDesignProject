@@ -823,3 +823,4 @@
 (evaluate "tests/term-lazy.txt")
 (evaluate "tests/list.txt")
 (evaluate "tests/equal.txt")
+(evaluate "tests/list-rec.txt")
