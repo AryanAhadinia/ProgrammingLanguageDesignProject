@@ -513,12 +513,24 @@
 (define value-of-compare-operator-sum-pair
   (lambda (external-sum pair env)
     (cases compare-operator-sum-pair pair
-      (eq-sum (sum-op) (bool-val (= (store-value->number external-sum)
-                                    (store-value->number (value-of-sum-expression sum-op env)))))
+      (eq-sum (sum-op) (bool-val (cases store-value external-sum
+                                   (numeric-val (val) (= val (store-value->number (value-of-sum-expression sum-op env))))
+                                   (bool-val (val) (not (xor val (store-value->bool (value-of-sum-expression sum-op env)))))
+                                   (list-val (val) (list-equal? val (store-value->list (value-of-sum-expression sum-op env))))
+                                   (else #f))))
       (lt-sum (sum-op) (bool-val (< (store-value->number external-sum)
                                     (store-value->number (value-of-sum-expression sum-op env)))))
       (gt-sum (sum-op) (bool-val (> (store-value->number external-sum)
                                     (store-value->number (value-of-sum-expression sum-op env))))))))
+
+(define list-equal?
+  (lambda (l1 l2)
+    (cond
+      ((and (null? l1) (null? l2)) #t)
+      ((null? l1) #f)
+      ((null? l2) #f)
+      ((equal? (car l1) (car l2)) (list-equal? (cdr l1) (cdr l2)))
+      (else #f))))
 
 (define last-sum-of-pairs
   (lambda (pairs env)
@@ -550,14 +562,14 @@
 (define value-of-term-expression
   (lambda (term-exp env)
     (cases term-expression term-exp
-      (term* (term-op factor-op) (let ([op1 (value-of-term-expression term-op env)]
-                                       [op2 (value-of-factor-expression factor-op env)])
-                                   (cases store-value op1
-                                     (numeric-val (val) (numeric-val (* (store-value->number op1)
-                                                                        (store-value->number op2))))
-                                     (bool-val (val) (bool-val (and (store-value->bool op1)
-                                                                    (store-value->bool op2))))
-                                     (else 'errorterm))))
+      (term* (term-op factor-op) (cases store-value (value-of-term-expression term-op env)
+                                   (numeric-val (val) (numeric-val (if (= 0 val)
+                                                                       0
+                                                                       (* val (store-value->number (value-of-factor-expression factor-op env))))))
+                                   (bool-val (val) (bool-val (if (not val)
+                                                                 #f
+                                                                 (and val (store-value->bool (value-of-factor-expression factor-op env))))))
+                                   (else 'errorterm)))
       (term/ (term-op factor-op) (numeric-val (/ (/ (store-value->number (value-of-term-expression term-op env))
                                                     (store-value->number (value-of-factor-expression factor-op env))) 1.0)))
       (term-nop (factor-op) (value-of-factor-expression factor-op env)))))
@@ -799,4 +811,15 @@
                                                ;(trace execute-statement)
                                                (execute-program parser-res))))
 
+(evaluate "tests/complicated-syntax.txt")
+(evaluate "tests/expressions.txt")
+(evaluate "tests/for.txt")
+(evaluate "tests/function.txt")
+(evaluate "tests/global.txt")
+(evaluate "tests/if.txt")
 (evaluate "tests/rec-global.txt")
+(evaluate "tests/recuresive-global.txt")
+(evaluate "tests/recurssion.txt")
+(evaluate "tests/term-lazy.txt")
+(evaluate "tests/list.txt")
+(evaluate "tests/equal.txt")

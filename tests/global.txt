@@ -6,4 +6,5 @@ def f():
 ;
 a = 2;
 b = f();
+a = print(a);
 

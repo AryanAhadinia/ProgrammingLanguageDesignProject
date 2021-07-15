@@ -14,3 +14,4 @@ if a > 10:
 else:
 	a = 2.2;
 ;
+a = print(a);
