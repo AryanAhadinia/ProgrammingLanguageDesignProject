@@ -1,0 +1,13 @@
+def f(a = 0):
+    a = print(a);
+    return a;
+    ;
+
+x = print(f(2) * f(1) * f(0) * f(-1));
+
+def g(a = 0):
+    a = print(a);
+    return not a == 0;
+    ;
+
+x = print(g(2) * g(1) * g(0) * g(-1));
