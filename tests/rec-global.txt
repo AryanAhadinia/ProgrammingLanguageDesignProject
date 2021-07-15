@@ -3,10 +3,11 @@ def fact(n = 0):
     if n == 0:
         a = 1;
     else:
-        fact(n - 1);
+        x = fact(n - 1);
         a = n * a;
         ;
     ;
 
-a = 0;
-print(a);
+a = 5;
+x = fact(a);
+a = print(a);
