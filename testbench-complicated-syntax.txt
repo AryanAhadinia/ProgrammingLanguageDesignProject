@@ -1,22 +1,18 @@
-def add(a = 0, b = 0):
-	return a + b;
-;
-def sqr(n = 1):
-	return n**2;
-;
-my_list = [1,2,3,4,5,6,7,8,9,10];
-sum = 0;
-for i in my_list:
-	for j in my_list:
-		if j == 5 and i == 5:
-			break;
+def function(n = 1):
+	if n == 1:
+		global a;
+		a = a + 1;
+		return 0;
+	else:
+		if n == 0:
+			global a;
+			a = a + 1;
+			return 0;
 		else:
-			if j == 3 and i == 3:
-				continue;
-			else:
-				sum = sum + sqr(add(i,j));
-			;
+			return function(n-1) + function(n-2);
 		;
 	;
 ;
-a = print(sum);
+a = 55;
+c = print(function(5));
+a = print(a);
