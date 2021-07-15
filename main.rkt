@@ -529,7 +529,7 @@
       ((and (null? l1) (null? l2)) #t)
       ((null? l1) #f)
       ((null? l2) #f)
-      ((eqv? (car l1) (car l2)) (list-equal? (cdr l1) (cdr l2)))
+      ((equal? (car l1) (car l2)) (list-equal? (cdr l1) (cdr l2)))
       (else #f))))
 
 (define last-sum-of-pairs
