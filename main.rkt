@@ -32,14 +32,15 @@
 
 (define store-value->string
   (lambda (store-val)
-    (cases store-value store-val
+    (cases store-value (force-lazy store-val)
       (none-val () "None")
       (numeric-val (num) (number->string num))
       (bool-val (val) (if val "True" "False"))
       (list-val (val) (let ([strs (map store-value->string val)])
                         (string-append "[" (foldl (lambda (v s) (string-append s ", " v)) (car strs) (cdr strs)) "]")))
       (function-val (function-name bound-vars default-vals body saved-env)
-                    (string-append "function" (symbol->string function-name))))))
+                    (string-append "function" (symbol->string function-name)))
+      (lazy-val (exp env) (store-value->string (value-of-expression exp env))))))
 
 
 
@@ -808,4 +809,4 @@
                                                ;(trace execute-statement)
                                                (execute-program parser-res))))
 
-(evaluate "tests/test-func.txt")
+(evaluate "tests/lazy.txt")
