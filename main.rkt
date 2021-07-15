@@ -514,8 +514,8 @@
   (lambda (external-sum pair env)
     (cases compare-operator-sum-pair pair
       (eq-sum (sum-op) (bool-val (cases store-value external-sum
-                                   (num-val (val) (= val (store-value->number (value-of-sum-expression sum-op env))))
-                                   (bool-val (val) (not (xnor val (store-value->boolean (value-of-sum-expression sum-op env)))))
+                                   (numeric-val (val) (= val (store-value->number (value-of-sum-expression sum-op env))))
+                                   (bool-val (val) (not (xor val (store-value->bool (value-of-sum-expression sum-op env)))))
                                    (list-val (val) (list-equal? val (store-value->list (value-of-sum-expression sum-op env))))
                                    (else #f))))
       (lt-sum (sum-op) (bool-val (< (store-value->number external-sum)
@@ -529,7 +529,7 @@
       ((and (null? l1) (null? l2)) #t)
       ((null? l1) #f)
       ((null? l2) #f)
-      ((= (car l1) (car l2)) (list-equal? (cdr l1) (cdr l2)))
+      ((eqv? (car l1) (car l2)) (list-equal? (cdr l1) (cdr l2)))
       (else #f))))
 
 (define last-sum-of-pairs
@@ -822,3 +822,4 @@
 (evaluate "tests/recurssion.txt")
 (evaluate "tests/term-lazy.txt")
 (evaluate "tests/list.txt")
+(evaluate "tests/equal.txt")

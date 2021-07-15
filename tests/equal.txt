@@ -1,0 +1,5 @@
+if 1 == 1 and False == False and [1,4,5] == [1,4,5]:
+	x = print(True);
+else:
+	x = print(False);
+;
