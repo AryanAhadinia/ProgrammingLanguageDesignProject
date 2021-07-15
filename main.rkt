@@ -799,4 +799,4 @@
                                                ;(trace execute-statement)
                                                (execute-program parser-res))))
 
-(evaluate "tests/test-expressions.txt")
+(evaluate "tests/rec-global.txt")

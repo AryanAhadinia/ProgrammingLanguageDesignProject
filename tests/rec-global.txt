@@ -1,0 +1,12 @@
+def fact(n = 0):
+    global a;
+    if n == 0:
+        a = 1;
+    else:
+        fact(n - 1);
+        a = n * a;
+        ;
+    ;
+
+a = 0;
+print(a);
